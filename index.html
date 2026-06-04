@@ -235,6 +235,34 @@
       <div class="topbar-date" id="topbar-date"></div>
       <div class="topbar-coins" id="topbar-coins">🪙 <span id="topbar-coins-val">0</span></div>
       <div class="topbar-actions">
+        <!-- Topbar XP/Level bar -->
+        <div class="topbar-xp-bar" id="topbar-xp-bar">
+          <div class="topbar-level-badge" id="topbar-xp-level">1</div>
+          <div class="topbar-xp-info">
+            <div class="topbar-xp-top">
+              <span class="topbar-xp-name" id="topbar-xp-level-name">Beginner</span>
+              <span class="topbar-xp-count"><span id="topbar-xp-current">0</span>/<span id="topbar-xp-next">100</span> XP</span>
+            </div>
+            <div class="topbar-xp-track">
+              <div class="topbar-xp-fill" id="topbar-xp-fill" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Topbar Energy bar -->
+        <div class="topbar-energy-bar" id="topbar-energy-wrap" title="Energy Level">
+          <span class="topbar-energy-icon">⚡</span>
+          <div class="topbar-energy-track">
+            <div class="topbar-energy-fill" id="topbar-energy-fill" style="width:100%"></div>
+          </div>
+          <span class="topbar-energy-pct" id="topbar-energy-pct">100%</span>
+        </div>
+
+        <!-- Focus Session CTA -->
+        <button class="topbar-focus-btn mod-card" data-module="focus" onclick="showPage('focus')" title="Start a Focus Session">
+          ⏱ <span class="topbar-action-label">Focus</span>
+        </button>
+
         <button class="topbar-action-btn" onclick="toggleMissionsPanel()" id="missions-topbar-btn" title="Daily Missions">
           🎯 <span class="topbar-action-label">Missions</span>
           <span class="missions-badge" id="missions-badge">0/4</span>
@@ -278,24 +306,6 @@
         <!-- LEFT: stats column -->
         <div class="db-left-col">
 
-          <!-- XP / Level bar -->
-          <div class="db-xp-row">
-            <div class="level-badge">
-              <div class="level-num" id="xp-level">1</div>
-              <div class="level-label">Level</div>
-            </div>
-            <div class="xp-block">
-              <div class="xp-top">
-                <span class="xp-title" id="xp-level-name">Beginner</span>
-                <span class="xp-count"><span id="xp-current">0</span> / <span id="xp-next">100</span> XP</span>
-              </div>
-              <div class="xp-bar-bg">
-                <div class="xp-bar-fill" id="xp-bar" style="width:0%"></div>
-              </div>
-              <div class="level-name">Next: <span id="xp-next-name">Apprentice</span></div>
-            </div>
-          </div>
-
           <!-- Goal ring + streak + weekly chart -->
           <div class="db-hero-row">
             <div class="db-ring-card">
@@ -332,23 +342,6 @@
           </div>
 
 
-
-          <!-- Energy bar -->
-          <div class="card db-energy-card">
-            <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
-              <span>⚡ Energy Level</span>
-              <span class="energy-pct" style="font-size:.82rem;color:var(--text2)">100%</span>
-            </div>
-            <div class="energy-bar-track">
-              <div class="energy-bar-fill" style="width:100%"></div>
-            </div>
-            <div style="font-size:.72rem;color:var(--text3);margin-top:.35rem">Takes focus sessions to deplete. Rest &amp; breaks restore it.</div>
-          </div>
-
-          <!-- Start Focus CTA -->
-          <button class="db-focus-cta mod-card" data-module="focus" onclick="showPage('focus')">
-            ⏱ Start a Focus Session
-          </button>
 
           <!-- Today's Tasks -->
           <div class="card mod-card db-tasks-card" data-module="tasks">

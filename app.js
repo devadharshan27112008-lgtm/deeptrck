@@ -2718,6 +2718,18 @@ function updateXpBar() {
   if (nextEl)    nextEl.textContent    = info.nextXp - info.prevXp;
   if (barEl)     barEl.style.width     = (info.progress * 100) + '%';
   if (nextNameEl) nextNameEl.textContent = info.next;
+
+  // Sync topbar XP elements
+  const tbLevel = document.getElementById('topbar-xp-level');
+  const tbName  = document.getElementById('topbar-xp-level-name');
+  const tbCurr  = document.getElementById('topbar-xp-current');
+  const tbNext  = document.getElementById('topbar-xp-next');
+  const tbFill  = document.getElementById('topbar-xp-fill');
+  if (tbLevel) tbLevel.textContent = info.level;
+  if (tbName)  tbName.textContent  = info.name;
+  if (tbCurr)  tbCurr.textContent  = info.currentXp - info.prevXp;
+  if (tbNext)  tbNext.textContent  = info.nextXp - info.prevXp;
+  if (tbFill)  tbFill.style.width  = (info.progress * 100) + '%';
 }
 
 // ===== DAILY MISSIONS =====
@@ -3168,13 +3180,19 @@ function regenEnergy(mins) {
 function updateEnergyBar() {
   const state = getEnergyState();
   const pct = state.energy;
+  const color = pct > 60 ? '#34d399' : pct > 30 ? '#fbbf24' : '#ef4444';
   document.querySelectorAll('.energy-bar-fill').forEach(el => {
     el.style.width = pct + '%';
-    el.style.background = pct > 60 ? '#34d399' : pct > 30 ? '#fbbf24' : '#ef4444';
+    el.style.background = color;
   });
   document.querySelectorAll('.energy-pct').forEach(el => {
     el.textContent = Math.round(pct) + '%';
   });
+  // Sync topbar energy bar
+  const tbFill = document.getElementById('topbar-energy-fill');
+  const tbPct  = document.getElementById('topbar-energy-pct');
+  if (tbFill) { tbFill.style.width = pct + '%'; tbFill.style.background = color; }
+  if (tbPct)  tbPct.textContent = Math.round(pct) + '%';
 }
 
 function triggerWellnessIntercept() {

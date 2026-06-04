@@ -608,6 +608,62 @@ aside.sidebar.collapsed .sidebar-bottom .nav-icon {
 }
 .topbar-quicklog:hover { background: var(--accent); }
 
+/* ── Topbar XP / Level bar ── */
+.topbar-xp-bar {
+  display: flex; align-items: center; gap: .55rem;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: .28rem .6rem;
+  min-width: 160px; max-width: 220px;
+}
+.topbar-level-badge {
+  background: var(--accent2); color: #fff;
+  border-radius: 6px; font-size: .68rem; font-weight: 800;
+  min-width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.topbar-xp-info { display: flex; flex-direction: column; gap: .18rem; flex: 1; min-width: 0; }
+.topbar-xp-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .3rem;
+}
+.topbar-xp-name { font-size: .68rem; font-weight: 700; color: var(--text1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-xp-count { font-size: .6rem; color: var(--text3); white-space: nowrap; font-family: var(--mono); }
+.topbar-xp-track {
+  height: 4px; border-radius: 99px; background: var(--bg1); overflow: hidden;
+}
+.topbar-xp-fill {
+  height: 100%; border-radius: 99px; background: var(--accent2);
+  transition: width .6s cubic-bezier(.4,0,.2,1);
+}
+
+/* ── Topbar Energy bar ── */
+.topbar-energy-bar {
+  display: flex; align-items: center; gap: .4rem;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: .28rem .6rem;
+  min-width: 110px;
+}
+.topbar-energy-icon { font-size: .78rem; flex-shrink: 0; }
+.topbar-energy-track {
+  flex: 1; height: 5px; border-radius: 99px; background: var(--bg1); overflow: hidden;
+}
+.topbar-energy-fill {
+  height: 100%; border-radius: 99px; background: #34d399;
+  transition: width .5s ease, background .4s ease;
+}
+.topbar-energy-pct { font-size: .65rem; color: var(--text2); font-family: var(--mono); white-space: nowrap; }
+
+/* ── Topbar Focus button ── */
+.topbar-focus-btn {
+  display: flex; align-items: center; gap: .32rem;
+  padding: .38rem .75rem; border-radius: var(--radius-sm);
+  background: var(--accent2); border: none;
+  color: #fff; font-family: var(--font); font-size: .75rem;
+  font-weight: 600; cursor: pointer; transition: var(--transition);
+}
+.topbar-focus-btn:hover { filter: brightness(1.15); }
+.topbar-focus-btn:active { transform: scale(.97); }
+
 /* ── Topbar action buttons (Missions + Achievements) ── */
 .topbar-actions {
   margin-left: auto;
@@ -673,6 +729,9 @@ aside.sidebar.collapsed .sidebar-bottom .nav-icon {
   .topbar-action-label { display: none; }
   .topbar-action-btn { padding: .38rem .5rem; }
   .missions-panel { right: .5rem; left: .5rem; width: auto; top: 52px; }
+  .topbar-xp-bar { display: none; }
+  .topbar-energy-bar { display: none; }
+  .topbar-focus-btn .topbar-action-label { display: none; }
 }
 
 /* ===== PAGES ===== */
