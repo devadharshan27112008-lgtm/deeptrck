@@ -730,7 +730,7 @@ aside.sidebar.collapsed .sidebar-bottom .nav-icon {
   .topbar-action-btn { padding: .38rem .5rem; }
   .missions-panel { right: .5rem; left: .5rem; width: auto; top: 52px; }
   .topbar-xp-bar { display: none; }
-  .topbar-energy-bar { display: none; }
+  .topbar-energy-bar { min-width: 80px; }
   .topbar-focus-btn .topbar-action-label { display: none; }
 }
 
@@ -1180,7 +1180,7 @@ body.light .accent-dot.active { border-color: #1e293b; box-shadow: 0 0 0 2px rgb
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   margin: .75rem 0 .5rem;
 }
-.focus-dp-ring-wrap { position: relative; width: 130px; height: 130px; flex-shrink: 0; }
+.focus-dp-ring-wrap { position: relative; width: 130px; height: 130px; flex-shrink: 0; align-self: center; }
 .focus-dp-ring-inner { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .focus-dp-goal-val { font-family: var(--mono); font-size: 1.55rem; font-weight: 700; color: var(--accent); line-height: 1; }
 .focus-dp-goal-sub { font-size: .6rem; color: var(--text3); text-align: center; margin-top: .2rem; line-height: 1.3; }
@@ -1374,10 +1374,11 @@ body.light { --ring-track: rgba(30,80,160,0.08); }
 
 .db-banner {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 1.75rem; gap: 1rem;
+  margin-bottom: 1.75rem; gap: 1.25rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--border);
   animation: fadeSlideIn .35s ease both;
+  flex-wrap: wrap;
 }
 @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -1392,6 +1393,37 @@ body.light { --ring-track: rgba(30,80,160,0.08); }
 }
 .db-today-time { font-family: var(--mono); font-size: 1.5rem; font-weight: 700; color: var(--accent); line-height: 1; }
 .db-today-label { font-size: .68rem; color: var(--text3); margin-top: .12rem; }
+
+/* Right group: level bar + daily goal pill side by side */
+.db-banner-right {
+  display: flex; align-items: center; gap: 1rem; flex-shrink: 0;
+}
+
+/* ── Banner XP / Level bar ── */
+.db-banner-xp {
+  display: flex; align-items: center; gap: .75rem;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 14px; padding: .75rem 1.1rem;
+  min-width: 190px; flex-shrink: 0;
+}
+.db-banner-level-badge {
+  background: var(--accent2); color: #fff;
+  border-radius: 10px; font-size: .85rem; font-weight: 800;
+  min-width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; letter-spacing: -.01em;
+}
+.db-banner-xp-info { display: flex; flex-direction: column; gap: .25rem; flex: 1; min-width: 0; }
+.db-banner-xp-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.db-banner-xp-name { font-size: .82rem; font-weight: 700; color: var(--text1); white-space: nowrap; }
+.db-banner-xp-count { font-size: .7rem; color: var(--text3); font-family: var(--mono); white-space: nowrap; }
+.db-banner-xp-track {
+  height: 6px; border-radius: 99px; background: var(--bg1); overflow: hidden;
+}
+.db-banner-xp-fill {
+  height: 100%; border-radius: 99px; background: var(--accent2);
+  transition: width .6s cubic-bezier(.4,0,.2,1);
+}
+.db-banner-xp-next { font-size: .65rem; color: var(--text3); margin-top: .05rem; }
 
 /* Hero row — no heavy box, just breathing room */
 .db-hero-row {

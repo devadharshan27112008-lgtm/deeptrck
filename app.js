@@ -662,8 +662,16 @@ async function renderDashboard() {
   celebrateStreak(streak);
 
   const now = new Date();
-  const pendingTasks = sortTasks(tasks.filter(t => !t.done));
-  const doneTasks = tasks.filter(t => t.done);
+  const pendingTasks = sortTasks(tasks.filter(t => {
+    if (t.done) return false;
+    if (t.repeat) return !(t.completedDates || []).includes(today); // repeat: pending if not done today
+    return true;
+  }));
+  const doneTasks = tasks.filter(t => {
+    if (t.done) return true;
+    if (t.repeat) return (t.completedDates || []).includes(today); // repeat: show as done if done today
+    return false;
+  });
   const top10 = [...pendingTasks, ...doneTasks].slice(0, 10);
 
   const totalDone = tasks.filter(t => t.done).length;
@@ -686,12 +694,16 @@ async function renderDashboard() {
   dashTasksEl.innerHTML = top10.length ? top10.map(t => {
     const dueBadge = taskDueBadgeHTML(t, today, now);
     const priBadge = priorityBadgeHTML(t.priority || 'medium');
-    return `<div class="dash-task-item ${t.done ? 'done' : ''}">
-      <input type="checkbox" class="dash-task-check" ${t.done ? 'checked' : ''}
-        onchange="toggleTask('${t._id}', ${t.done})">
+    const isDoneToday = t.done || (t.repeat && (t.completedDates || []).includes(today));
+    const onchange = t.repeat
+      ? `toggleRepeatToday('${t._id}', '${today}')`
+      : `toggleTask('${t._id}', ${t.done})`;
+    return `<div class="dash-task-item ${isDoneToday ? 'done' : ''}">
+      <input type="checkbox" class="dash-task-check" ${isDoneToday ? 'checked' : ''}
+        onchange="${onchange}">
       <div class="dash-task-body">
-        <span class="task-name ${t.done ? 'done' : ''}">${t.text}</span>
-        <div class="dash-task-due">${priBadge}${dueBadge}</div>
+        <span class="task-name ${isDoneToday ? 'done' : ''}">${t.text}</span>
+        <div class="dash-task-due">${priBadge}${dueBadge}${t.repeat ? '<span style="font-size:.65rem;color:var(--text3);margin-left:.3rem">🔁</span>' : ''}</div>
       </div>
     </div>`;
   }).join('') : '<div class="empty-state">No tasks yet. Add some in Tasks →</div>';
@@ -2658,6 +2670,8 @@ function addXp(amount, label, sourceEl) {
     setTimeout(() => showLevelUpPopup(newLvlInfo), 600);
   }
   updateXpBar();
+  // Award sparks: 1 spark per 2 XP
+  addSparks(Math.floor(amount / 2));
 }
 
 function showXpPopup(amount, nearEl) {
@@ -2725,11 +2739,13 @@ function updateXpBar() {
   const tbCurr  = document.getElementById('topbar-xp-current');
   const tbNext  = document.getElementById('topbar-xp-next');
   const tbFill  = document.getElementById('topbar-xp-fill');
+  const tbNextName = document.getElementById('db-banner-xp-next-name');
   if (tbLevel) tbLevel.textContent = info.level;
   if (tbName)  tbName.textContent  = info.name;
   if (tbCurr)  tbCurr.textContent  = info.currentXp - info.prevXp;
   if (tbNext)  tbNext.textContent  = info.nextXp - info.prevXp;
   if (tbFill)  tbFill.style.width  = (info.progress * 100) + '%';
+  if (tbNextName) tbNextName.textContent = info.next;
 }
 
 // ===== DAILY MISSIONS =====
@@ -2902,20 +2918,15 @@ function spendSparks(amount) {
 
 function updateSparksDisplay() {
   const state = getCurrencyState();
+  const val = state.sparks || 0;
   document.querySelectorAll('.sparks-display').forEach(el => {
-    el.textContent = '⚡ ' + (state.sparks || 0) + ' Sparks';
+    el.textContent = '⚡ ' + val + ' Sparks';
   });
-  const petEl = document.getElementById('pet-sparks');
-  if (petEl) petEl.textContent = state.sparks || 0;
+  ['pet-sparks', 'sidebar-sparks', 'petworld-sparks'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  });
 }
-
-// Override addXp to also award sparks (1 spark per 2 XP)
-const _origAddXp = addXp;
-function addXpWithSparks(amount, label, sourceEl) {
-  _origAddXp(amount, label, sourceEl);
-  addSparks(Math.floor(amount / 2));
-}
-window.addXp = addXpWithSparks; // replace global
 
 // ===== VIRTUAL PET SYSTEM (PDF-4) =====
 const LS_PET = 'deeptrck-pet';
@@ -3640,18 +3651,24 @@ function openFeedModal() {
   const modal = document.getElementById('feed-modal');
   if (!modal) return;
   const sparks = getCurrencyState().sparks || 0;
+  const foodList = (window.PET_SHOP?.food?.length ? window.PET_SHOP.food : PET_FOOD);
   const grid = document.getElementById('feed-food-grid');
-  if (grid) grid.innerHTML = PET_FOOD.map(f => `
-    <div class="feed-food-item">
+  if (grid) grid.innerHTML = foodList.map(f => {
+    const canAfford = sparks >= f.cost;
+    const hungerLabel = f.hungerPct || ('+' + f.hunger + '%');
+    return `<div class="feed-food-item">
       <span class="feed-food-icon">${f.icon}</span>
       <div class="feed-food-info">
         <div class="feed-food-name">${f.name}</div>
-        <div class="feed-food-desc">${f.desc} (+${f.hunger}% hunger)</div>
+        <div class="feed-food-desc">${f.desc || ''} ${hungerLabel} hunger</div>
       </div>
-      <button class="btn-primary" onclick="feedPet('${f.id}');closeFeedModal();renderPetWorld()" style="font-size:.75rem;padding:.35rem .8rem;${sparks<f.cost?'opacity:.4;cursor:not-allowed':''}">
+      <button class="btn-primary" onclick="feedPet('${f.id}');closeFeedModal();renderPetWorld()"
+        style="font-size:.75rem;padding:.35rem .8rem;${canAfford ? '' : 'opacity:.4;cursor:not-allowed'}"
+        ${canAfford ? '' : 'disabled'}>
         ⚡${f.cost}
       </button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   modal.style.display = 'flex';
 }
 

@@ -235,22 +235,8 @@
       <div class="topbar-date" id="topbar-date"></div>
       <div class="topbar-coins" id="topbar-coins">🪙 <span id="topbar-coins-val">0</span></div>
       <div class="topbar-actions">
-        <!-- Topbar XP/Level bar -->
-        <div class="topbar-xp-bar" id="topbar-xp-bar">
-          <div class="topbar-level-badge" id="topbar-xp-level">1</div>
-          <div class="topbar-xp-info">
-            <div class="topbar-xp-top">
-              <span class="topbar-xp-name" id="topbar-xp-level-name">Beginner</span>
-              <span class="topbar-xp-count"><span id="topbar-xp-current">0</span>/<span id="topbar-xp-next">100</span> XP</span>
-            </div>
-            <div class="topbar-xp-track">
-              <div class="topbar-xp-fill" id="topbar-xp-fill" style="width:0%"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Topbar Energy bar -->
-        <div class="topbar-energy-bar" id="topbar-energy-wrap" title="Energy Level">
+        <!-- Energy bar -->
+        <div class="topbar-energy-bar" title="Energy Level">
           <span class="topbar-energy-icon">⚡</span>
           <div class="topbar-energy-track">
             <div class="topbar-energy-fill" id="topbar-energy-fill" style="width:100%"></div>
@@ -258,17 +244,15 @@
           <span class="topbar-energy-pct" id="topbar-energy-pct">100%</span>
         </div>
 
-        <!-- Focus Session CTA -->
-        <button class="topbar-focus-btn mod-card" data-module="focus" onclick="showPage('focus')" title="Start a Focus Session">
-          ⏱ <span class="topbar-action-label">Focus</span>
-        </button>
-
         <button class="topbar-action-btn" onclick="toggleMissionsPanel()" id="missions-topbar-btn" title="Daily Missions">
           🎯 <span class="topbar-action-label">Missions</span>
           <span class="missions-badge" id="missions-badge">0/4</span>
         </button>
         <button class="topbar-action-btn" onclick="showPage('achievements')" title="Achievements">
           🏆 <span class="topbar-action-label">Achievements</span>
+        </button>
+        <button class="topbar-focus-btn mod-card" data-module="focus" onclick="showPage('focus')" title="Start a Focus Session">
+          ⏱ <span class="topbar-action-label">Focus</span>
         </button>
         <button class="topbar-quicklog" onclick="openQuickLog()" title="Quick Log">⚡ Log</button>
       </div>
@@ -294,9 +278,27 @@
           <div class="db-greeting" id="greeting"></div>
           <div class="db-sub" id="greeting-sub"></div>
         </div>
-        <div class="db-today-pill">
-          <div class="db-today-time" id="stat-study">0h 0m</div>
-          <div class="db-today-label" id="stat-goal">/ 4h goal</div>
+
+        <div class="db-banner-right">
+          <!-- XP Level bar -->
+          <div class="db-banner-xp">
+            <div class="db-banner-level-badge" id="topbar-xp-level">1</div>
+            <div class="db-banner-xp-info">
+              <div class="db-banner-xp-top">
+                <span class="db-banner-xp-name" id="topbar-xp-level-name">Beginner</span>
+                <span class="db-banner-xp-count"><span id="topbar-xp-current">0</span> / <span id="topbar-xp-next">100</span> XP</span>
+              </div>
+              <div class="db-banner-xp-track">
+                <div class="db-banner-xp-fill" id="topbar-xp-fill" style="width:0%"></div>
+              </div>
+              <div class="db-banner-xp-next">Next: <span id="db-banner-xp-next-name">Apprentice</span></div>
+            </div>
+          </div>
+
+          <div class="db-today-pill">
+            <div class="db-today-time" id="stat-study">0h 0m</div>
+            <div class="db-today-label" id="stat-goal">/ 4h goal</div>
+          </div>
         </div>
       </div>
 
@@ -653,7 +655,7 @@
                 <div class="focus-dp-label">Yesterday<br>minutes</div>
               </div>
               <div class="focus-dp-ring-wrap">
-                <svg width="100" height="100" viewBox="0 0 100 100">
+                <svg width="100%" height="100%" viewBox="0 0 100 100" style="display:block">
                   <circle cx="50" cy="50" r="40" fill="none" stroke="var(--bg3)" stroke-width="8"/>
                   <circle id="focus-dp-ring" cx="50" cy="50" r="40" fill="none" stroke="var(--accent)" stroke-width="8"
                     stroke-dasharray="251" stroke-dashoffset="251" stroke-linecap="round"
@@ -672,16 +674,7 @@
             <div class="focus-dp-completed" id="focus-dp-completed">Completed: 0 minutes</div>
           </div>
 
-          <div class="card">
-            <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
-              <span>☑️ Select task for this session</span>
-              <button class="btn-outline" style="font-size:.72rem;padding:.25rem .6rem" onclick="showPage('tasks')">+ New task</button>
-            </div>
-            <div id="focus-task-list" class="focus-task-picker"></div>
-            <input type="text" id="focus-task-input" class="input" placeholder="Or type what you're working on…" style="margin-top:.75rem;font-size:.82rem">
-          </div>
-
-          <!-- Brain Dump Panel (PDF-5) -->
+          <!-- Brain Dump -->
           <div class="card brain-dump-card">
             <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
               <span>🧠 Brain Dump</span>
@@ -693,6 +686,16 @@
               <button class="btn-primary" style="padding:.5rem .9rem;font-size:.82rem" onclick="addBrainDumpItem()">Park it</button>
             </div>
             <div id="brain-dump-list" style="margin-top:.6rem"></div>
+          </div>
+
+          <!-- Select Task -->
+          <div class="card">
+            <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+              <span>☑️ Select task for this session</span>
+              <button class="btn-outline" style="font-size:.72rem;padding:.25rem .6rem" onclick="showPage('tasks')">+ New task</button>
+            </div>
+            <div id="focus-task-list" class="focus-task-picker"></div>
+            <input type="text" id="focus-task-input" class="input" placeholder="Or type what you're working on…" style="margin-top:.75rem;font-size:.82rem">
           </div>
 
           <!-- Energy Bar -->
@@ -707,11 +710,6 @@
             </div>
           </div>
         </div>
-      </div>
-
-      <div class="card" style="margin-top:1rem">
-        <div class="card-title">Today's Focus Log</div>
-        <div id="focus-log"></div>
       </div>
     </div>
 
