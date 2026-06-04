@@ -850,3 +850,20 @@ if(typeof window.getPetState==='function'){
     window.renderEnhancedPetCard?.('pet-page-content');
   },300);
 }
+
+// ─── DOMContentLoaded init — wait for app.js to expose its globals ────────────
+document.addEventListener('DOMContentLoaded', function() {
+  // Retry until app.js has finished exposing window globals
+  let attempts = 0;
+  const tryInit = setInterval(() => {
+    attempts++;
+    if (typeof window.getPetState === 'function' && typeof window.getXpState === 'function') {
+      clearInterval(tryInit);
+      window.installEnhancedFeedPet?.();
+      setTimeout(() => {
+        window.renderEnhancedPetCard?.('pet-card-content');
+      }, 100);
+    }
+    if (attempts > 40) clearInterval(tryInit); // stop after 4s
+  }, 100);
+});

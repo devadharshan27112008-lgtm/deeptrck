@@ -585,14 +585,22 @@ function renderPage(name) {
     }, 100);
   }
   if (name === 'petworld') {
-    setTimeout(() => renderPetWorld(), 100);
+    setTimeout(() => {
+      renderPetWorld();
+    }, 100);
   }
   if (name === 'achievements') {
     setTimeout(() => renderAchievementsPage(), 100);
   }
   // New feature renders
   if (name === 'dashboard') {
-    setTimeout(renderPetCard, 100);
+    setTimeout(() => {
+      if (typeof window.renderEnhancedPetCard === 'function') {
+        window.renderEnhancedPetCard('pet-card-content');
+      } else {
+        renderPetCard();
+      }
+    }, 150);
     setTimeout(updateEnergyBar, 100);
     setTimeout(updateSparksDisplay, 100);
   }
@@ -3074,17 +3082,22 @@ window.buyWardrobeItem = buyWardrobeItem;
 window.getPetState = getPetState;
 window.savePetState = savePetState;
 window.getPetHunger = getPetHunger;
+window.getPetMood = getPetMood;
 window.spendSparks = spendSparks;
 window.getCurrencyState = getCurrencyState;
+window.getXpState = getXpState;
+window.getLevelInfo = getLevelInfo;
+window.hatchPet = hatchPet;
+window.showToast = showToast;
 // Install enhanced feed + re-render now that internals are available
 if (typeof window.installEnhancedFeedPet === 'function') {
   window.installEnhancedFeedPet();
 } else {
   window.feedPet = feedPet; // fallback if pet.js not loaded
 }
+// Render pet card on load — pet.js SVG renderer takes priority
 if (typeof window.renderEnhancedPetCard === 'function') {
-  // Use a longer delay so pet.js Three.js setup is fully ready
-  setTimeout(() => window.renderEnhancedPetCard('pet-card-content'), 300);
+  setTimeout(() => window.renderEnhancedPetCard('pet-card-content'), 400);
 }
 
 // Pet hunger check — apply debuff if fatigued
@@ -3491,40 +3504,32 @@ function renderPetWorld() {
   const actionsEl = document.getElementById('petworld-actions');
 
   if (!pet) {
-    if (mainContent) mainContent.innerHTML = `
-      <div id="pet-hatch-panel" class="pet-hatch-panel">
-        <div class="pet-hatch-title">🥚 Hatch Your Study Buddy</div>
-        <p class="pet-hatch-sub">Study to earn XP and watch it evolve through 5 stages!</p>
-        <div class="pet-archetype-grid-new">
-          ${Object.entries(PET_ARCHETYPES).map(([k,v]) => `
-            <label class="pet-archetype-option-new">
-              <input type="radio" name="pet-archetype-world" value="${k}" ${k==='kitten'?'checked':''} style="display:none">
-              <span style="font-size:2.2rem">${v.emoji}</span>
-              <span class="pet-arch-name">${v.name}</span>
-            </label>`).join('')}
-        </div>
-        <input type="text" id="pet-name-world-input" class="input" placeholder="Name your pet..." style="margin:.75rem 0;text-align:center">
-        <button class="btn-primary" onclick="hatchPetFromWorld()">🥚 Hatch!</button>
-      </div>`;
+    // Use SVG-based hatch panel from pet.js if available
+    if (mainContent) {
+      mainContent.innerHTML = '<div id="pet-page-content" style="padding:.5rem 0"></div>';
+      if (typeof window.renderEnhancedPetCard === 'function') {
+        setTimeout(() => window.renderEnhancedPetCard('pet-page-content'), 0);
+      }
+    }
     if (metersEl) metersEl.style.display = 'none';
     if (actionsEl) actionsEl.style.display = 'none';
   } else {
     const hunger = getPetHunger(pet);
-    const { mood, emoji: moodEmoji, color: moodColor } = getPetMood(hunger);
-    const archetype = PET_ARCHETYPES[pet.archetype] || PET_ARCHETYPES.kitten;
+    const { mood, color: moodColor } = getPetMood(hunger);
     const petNameLabel = evo.emoji + ' ' + pet.name;
     const petNameEl = document.getElementById('petworld-pet-name');
     if (petNameEl) petNameEl.textContent = petNameLabel;
 
-    // Determine pet animation class based on hunger
-    const petAnim = hunger > 50 ? 'pet-anim-walk' : hunger > 20 ? 'pet-anim-idle' : 'pet-anim-sleep';
-    if (mainContent) mainContent.innerHTML = `
-      <div class="petworld-pet-display ${petAnim}">
-        <div class="petworld-pet-emoji">${archetype.emoji}</div>
-        <div class="petworld-pet-mood" style="color:${moodColor}">${moodEmoji} ${mood}</div>
-        <div class="petworld-pet-evo-badge">${evo.label}</div>
-        ${pet.equippedItems?.length ? `<div class="petworld-accessories">${pet.equippedItems.map(id => PET_WARDROBE.find(w=>w.id===id)?.icon||'').join(' ')}</div>` : ''}
-      </div>`;
+    // Use SVG renderer from pet.js
+    if (mainContent) {
+      // Only rebuild if container doesn't already have the SVG pet content
+      if (!document.getElementById('pet-page-content')) {
+        mainContent.innerHTML = '<div id="pet-page-content" style="padding:.5rem 0"></div>';
+      }
+      if (typeof window.renderEnhancedPetCard === 'function') {
+        setTimeout(() => window.renderEnhancedPetCard('pet-page-content'), 0);
+      }
+    }
 
     // Update meters
     const happiness = Math.min(100, Math.round(hunger * 0.8 + (xpTotal > 0 ? 20 : 0)));
