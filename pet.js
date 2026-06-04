@@ -781,12 +781,14 @@ window.renderEnhancedPetCard = function(containerId) {
   container.appendChild(sparksEl);
 
   // Scene (SVG pet)
-  if (needsNewScene) {
+  // Force rebuild if existing scene wrap is no longer in the DOM
+  const existingWrap = document.getElementById('pet-scene-wrap-'+containerId);
+  const sceneIsInDOM = existingWrap && document.body.contains(existingWrap);
+  if (needsNewScene || !sceneIsInDOM) {
     const sceneDiv = buildScene(containerId, null, config, mood);
     container.appendChild(sceneDiv);
   } else {
-    const existingWrap = document.getElementById('pet-scene-wrap-'+containerId);
-    if (existingWrap) container.appendChild(existingWrap);
+    container.appendChild(existingWrap);
   }
 
   // Dashboard card only shows pet — no tabs
@@ -862,6 +864,10 @@ document.addEventListener('DOMContentLoaded', function() {
       window.installEnhancedFeedPet?.();
       setTimeout(() => {
         window.renderEnhancedPetCard?.('pet-card-content');
+        // Also render pet-page-content if it exists (Pet World page)
+        if (document.getElementById('pet-page-content')) {
+          window.renderEnhancedPetCard?.('pet-page-content');
+        }
       }, 100);
     }
     if (attempts > 40) clearInterval(tryInit); // stop after 4s

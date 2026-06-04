@@ -413,7 +413,7 @@ onAuthStateChanged(auth, async (user) => {
     clearCache();
     document.getElementById('auth-overlay').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
-    const name = user.displayName || user.email.split('@')[0];
+    const name = user.displayName || user.email?.split('@')[0] || 'Scholar';
     document.getElementById('user-chip').textContent = '👤 ' + name;
     await loadPrefs();
     initApp();
@@ -528,7 +528,7 @@ function updateTopbarDate() {
 function setGreeting() {
   const h = new Date().getHours();
   const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-  const name = App.user ? (App.user.displayName || App.user.email.split('@')[0]) : 'Scholar';
+  const name = App.user ? (App.user.displayName || App.user.email?.split('@')[0] || 'Scholar') : 'Scholar';
   const subs = [
     'Stay consistent, stay ahead.',
     'Every session counts.',
@@ -587,6 +587,13 @@ function renderPage(name) {
   if (name === 'petworld') {
     setTimeout(() => {
       renderPetWorld();
+      // Re-render pet SVG after a short delay to ensure DOM is settled
+      setTimeout(() => {
+        if (typeof window.renderEnhancedPetCard === 'function') {
+          const pc = document.getElementById('pet-page-content');
+          if (pc) window.renderEnhancedPetCard('pet-page-content');
+        }
+      }, 200);
     }, 100);
   }
   if (name === 'achievements') {
@@ -3508,7 +3515,10 @@ function renderPetWorld() {
     if (mainContent) {
       mainContent.innerHTML = '<div id="pet-page-content" style="padding:.5rem 0"></div>';
       if (typeof window.renderEnhancedPetCard === 'function') {
-        setTimeout(() => window.renderEnhancedPetCard('pet-page-content'), 0);
+        setTimeout(() => {
+          const pc = document.getElementById('pet-page-content');
+          if (pc) window.renderEnhancedPetCard('pet-page-content');
+        }, 50);
       }
     }
     if (metersEl) metersEl.style.display = 'none';
@@ -3522,12 +3532,14 @@ function renderPetWorld() {
 
     // Use SVG renderer from pet.js
     if (mainContent) {
-      // Only rebuild if container doesn't already have the SVG pet content
-      if (!document.getElementById('pet-page-content')) {
-        mainContent.innerHTML = '<div id="pet-page-content" style="padding:.5rem 0"></div>';
-      }
+      // Always rebuild the container to ensure a fresh render
+      mainContent.innerHTML = '<div id="pet-page-content" style="padding:.5rem 0"></div>';
       if (typeof window.renderEnhancedPetCard === 'function') {
-        setTimeout(() => window.renderEnhancedPetCard('pet-page-content'), 0);
+        // Use a short delay to ensure DOM is ready, then render
+        setTimeout(() => {
+          const pc = document.getElementById('pet-page-content');
+          if (pc) window.renderEnhancedPetCard('pet-page-content');
+        }, 50);
       }
     }
 
