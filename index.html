@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="description" content="DeepTrck — your personal study command center. Track study sessions, tasks, focus timer, courses and WPM progress all in one place.">
+<link rel="canonical" href="https://deeptrck.netlify.app/">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeepTrck — Your Study Companion</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230f172a'/><text x='6' y='24' font-size='20'>📚</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+
+<!-- LOADING SPLASH -->
+<div id="loading-splash" style="position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:1rem">
+  <div style="font-size:2.5rem">📚</div>
+  <div style="font-family:'Outfit',sans-serif;font-size:1.3rem;font-weight:800;color:#38bdf8;letter-spacing:-.03em">DeepTrck</div>
+  <div style="display:flex;gap:6px;margin-top:.5rem">
+    <span class="splash-dot"></span>
+    <span class="splash-dot" style="animation-delay:.18s"></span>
+    <span class="splash-dot" style="animation-delay:.36s"></span>
+  </div>
+</div>
+
+<!-- AUTH OVERLAY -->
+<div id="auth-overlay" class="auth-overlay" style="display:none">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <span class="logo-icon">📚</span>
+      <span class="logo-text">DeepTrck</span>
+    </div>
+    <p class="auth-tagline">Your personal study command center</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login', event)">Sign In</button>
+      <button class="auth-tab" onclick="switchTab('signup', event)">Sign Up</button>
+    </div>
+    <div id="login-form">
+      <input type="email" id="login-email" placeholder="Email address" class="auth-input">
+      <input type="password" id="login-password" placeholder="Password" class="auth-input">
+      <button class="auth-btn" onclick="handleLogin()">Sign In →</button>
+      <p class="auth-error" id="login-error"></p>
+    </div>
+    <div id="signup-form" style="display:none">
+      <input type="text" id="signup-name" placeholder="Your full name" class="auth-input">
+      <input type="email" id="signup-email" placeholder="Email address" class="auth-input">
+      <input type="password" id="signup-password" placeholder="Password (min 6 chars)" class="auth-input">
+      <button class="auth-btn" onclick="handleSignup()">Create Account →</button>
+      <p class="auth-error" id="signup-error"></p>
+    </div>
+    <p class="auth-note">☁️ Data saved to cloud · Access from any device</p>
+  </div>
+</div>
+
+<!-- ONBOARDING OVERLAY -->
+<div id="onboarding-overlay" style="display:none">
+  <div class="onboarding-box">
+    <div class="ob-step" id="ob-step-1">
+      <div class="ob-emoji">🎯</div>
+      <h2>What's your main study goal?</h2>
+      <p>We'll personalise your dashboard around it.</p>
+      <input type="text" id="ob-goal" class="auth-input" placeholder="e.g. Crack JEE, Learn Python, UPSC 2026…" style="margin-top:1rem">
+      <button class="auth-btn" style="margin-top:.75rem" onclick="obNext(1)">Continue →</button>
+    </div>
+    <div class="ob-step" id="ob-step-2" style="display:none">
+      <div class="ob-emoji">⏱️</div>
+      <h2>Daily study target?</h2>
+      <p>You'll earn XP every time you hit it.</p>
+      <div class="ob-goal-grid">
+        <button class="ob-goal-btn" onclick="obSelectGoal(this,60)">1 hour</button>
+        <button class="ob-goal-btn" onclick="obSelectGoal(this,120)">2 hours</button>
+        <button class="ob-goal-btn" onclick="obSelectGoal(this,180)">3 hours</button>
+        <button class="ob-goal-btn" onclick="obSelectGoal(this,240)">4 hours</button>
+        <button class="ob-goal-btn" onclick="obSelectGoal(this,300)">5 hours</button>
+        <button class="ob-goal-btn" onclick="obSelectGoal(this,360)">6+ hours</button>
+      </div>
+      <button class="auth-btn" style="margin-top:1.25rem" onclick="obNext(2)">Continue →</button>
+    </div>
+    <div class="ob-step" id="ob-step-3" style="display:none">
+      <div class="ob-emoji">🧩</div>
+      <h2>What do you want to track?</h2>
+      <p>Pick your modules. Change anytime in Settings.</p>
+      <div class="ob-modules">
+        <label class="ob-module-toggle ob-always-on">
+          <span class="ob-module-icon">⊞</span>
+          <span class="ob-module-name">Dashboard</span>
+          <span class="ob-module-sub">Always on</span>
+        </label>
+        <label class="ob-module-toggle" onclick="obToggleModule(this,'daily')">
+          <span class="ob-module-icon">✏️</span>
+          <span class="ob-module-name">Daily Log</span>
+          <span class="ob-module-check active" id="mod-daily">✓</span>
+        </label>
+        <label class="ob-module-toggle" onclick="obToggleModule(this,'tasks')">
+          <span class="ob-module-icon">☑️</span>
+          <span class="ob-module-name">Tasks</span>
+          <span class="ob-module-check active" id="mod-tasks">✓</span>
+        </label>
+        <label class="ob-module-toggle" onclick="obToggleModule(this,'courses')">
+          <span class="ob-module-icon">📘</span>
+          <span class="ob-module-name">Courses</span>
+          <span class="ob-module-check active" id="mod-courses">✓</span>
+        </label>
+        <label class="ob-module-toggle" onclick="obToggleModule(this,'focus')">
+          <span class="ob-module-icon">⏳</span>
+          <span class="ob-module-name">Focus Timer</span>
+          <span class="ob-module-check active" id="mod-focus">✓</span>
+        </label>
+        <label class="ob-module-toggle" onclick="obToggleModule(this,'typing')">
+          <span class="ob-module-icon">⌨️</span>
+          <span class="ob-module-name">Typing WPM</span>
+          <span class="ob-module-check" id="mod-typing"></span>
+        </label>
+        <label class="ob-module-toggle" onclick="obToggleModule(this,'reports')">
+          <span class="ob-module-icon">📊</span>
+          <span class="ob-module-name">Reports</span>
+          <span class="ob-module-check active" id="mod-reports">✓</span>
+        </label>
+      </div>
+      <button class="auth-btn" style="margin-top:1.25rem" onclick="obFinish()">Let's go 🚀</button>
+    </div>
+    <div class="ob-dots">
+      <span class="ob-dot active" id="ob-dot-1"></span>
+      <span class="ob-dot" id="ob-dot-2"></span>
+      <span class="ob-dot" id="ob-dot-3"></span>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK LOG MODAL -->
+<div id="quicklog-modal" style="display:none">
+  <div class="modal-backdrop" onclick="closeQuickLog()"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">⚡ Quick Log</span>
+      <button class="modal-close" onclick="closeQuickLog()">✕</button>
+    </div>
+    <input type="text" id="ql-activity" class="auth-input" placeholder="What did you study?">
+    <div style="display:flex;gap:.75rem;margin-bottom:.75rem">
+      <select id="ql-category" class="auth-input" style="flex:1">
+        <option value="Study">📖 Study</option>
+        <option value="Project">💻 Project</option>
+        <option value="Typing">⌨️ Typing</option>
+        <option value="Exercise">🏃 Exercise</option>
+        <option value="Reading">📕 Reading</option>
+        <option value="Other">⚡ Other</option>
+      </select>
+      <input type="number" id="ql-duration" class="auth-input" placeholder="Minutes" style="max-width:110px" min="1">
+    </div>
+    <div class="ql-quick-mins">
+      <span style="font-size:.75rem;color:var(--text3)">Quick:</span>
+      <button class="ql-min-btn" onclick="qlSetMins(15, event)">15m</button>
+      <button class="ql-min-btn" onclick="qlSetMins(30, event)">30m</button>
+      <button class="ql-min-btn" onclick="qlSetMins(45, event)">45m</button>
+      <button class="ql-min-btn" onclick="qlSetMins(60, event)">1h</button>
+      <button class="ql-min-btn" onclick="qlSetMins(90, event)">1.5h</button>
+      <button class="ql-min-btn" onclick="qlSetMins(120, event)">2h</button>
+    </div>
+    <button class="auth-btn" onclick="submitQuickLog()">+ Save Entry</button>
+    <p id="ql-error" style="color:var(--red);font-size:.8rem;margin-top:.4rem;min-height:1rem"></p>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none">
+
+  <!-- SIDEBAR — simplified: 4 primary items -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-collapse-row">
+        <button class="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" id="sidebar-collapse-btn" title="Collapse sidebar">‹</button>
+        <button class="sidebar-close" onclick="toggleSidebar()" id="sidebar-close">✕</button>
+      </div>
+      <div class="sidebar-logo-row">
+        <span class="logo-icon">📚</span>
+        <span class="logo-text sidebar-label">DeepTrck</span>
+      </div>
+    </div>
+    <div class="user-chip sidebar-label" id="user-chip"></div>
+    <nav class="sidebar-nav" id="sidebar-nav">
+      <!-- PRIMARY 4 -->
+      <a class="nav-item active" href="javascript:void(0)" onclick="showPage('dashboard')" data-page="dashboard">
+        <span class="nav-icon">⊞</span><span class="sidebar-label"> Dashboard</span>
+      </a>
+      <a class="nav-item mod-nav" data-module="tasks" href="javascript:void(0)" onclick="showPage('tasks')" data-page="tasks">
+        <span class="nav-icon">☑️</span><span class="sidebar-label"> Tasks</span>
+      </a>
+      <a class="nav-item mod-nav" data-module="focus" href="javascript:void(0)" onclick="showPage('focus')" data-page="focus">
+        <span class="nav-icon">⏳</span><span class="sidebar-label"> Focus</span>
+      </a>
+      <a class="nav-item mod-nav" data-module="daily" href="javascript:void(0)" onclick="showPage('daily')" data-page="daily">
+        <span class="nav-icon">✏️</span><span class="sidebar-label"> Daily Log</span>
+      </a>
+
+      <div class="nav-divider"></div>
+
+      <!-- SECONDARY — hidden below divider -->
+      <a class="nav-item mod-nav" data-module="courses" href="javascript:void(0)" onclick="showPage('courses')" data-page="courses">
+        <span class="nav-icon">📘</span><span class="sidebar-label"> Courses</span>
+      </a>
+      <a class="nav-item mod-nav" data-module="typing" href="javascript:void(0)" onclick="showPage('typing')" data-page="typing">
+        <span class="nav-icon">⌨️</span><span class="sidebar-label"> Typing</span>
+      </a>
+      <a class="nav-item mod-nav" data-module="reports" href="javascript:void(0)" onclick="showPage('reports')" data-page="reports">
+        <span class="nav-icon">📊</span><span class="sidebar-label"> Reports</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="sidebar-currency sidebar-label">
+        <span class="currency-coins">🪙 <span id="sidebar-coins">0</span></span>
+        <span class="currency-sparks">⚡ <span id="sidebar-sparks">0</span></span>
+      </div>
+      <a class="nav-item sidebar-settings-link" href="javascript:void(0)" onclick="showPage('petworld')" data-page="petworld" id="pet-nav-link" style="margin-bottom:.15rem">
+        <span class="nav-icon">🐾</span><span class="sidebar-label"> Pet World</span>
+      </a>
+      <a class="nav-item sidebar-settings-link" href="javascript:void(0)" onclick="showPage('settings')" data-page="settings">
+        <span class="nav-icon">⚙️</span><span class="sidebar-label"> Settings</span>
+      </a>
+      <button class="logout-btn" onclick="handleLogout()">
+        <span class="nav-icon" style="font-style:normal">↪</span><span class="sidebar-label"> Sign Out</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+    <div class="topbar">
+      <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div class="topbar-date" id="topbar-date"></div>
+      <div class="topbar-coins" id="topbar-coins">🪙 <span id="topbar-coins-val">0</span></div>
+      <button class="topbar-quicklog" onclick="openQuickLog()" title="Quick Log">⚡ Log</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════ DASHBOARD ═══════════════════════════════════════ -->
+    <div id="page-dashboard" class="page active">
+
+      <!-- Greeting bar -->
+      <div class="db-banner">
+        <div class="db-greeting-block">
+          <div class="db-greeting" id="greeting"></div>
+          <div class="db-sub" id="greeting-sub"></div>
+        </div>
+        <div class="db-today-pill">
+          <div class="db-today-time" id="stat-study">0h 0m</div>
+          <div class="db-today-label" id="stat-goal">/ 4h goal</div>
+        </div>
+      </div>
+
+      <!-- Two-column layout: stats left, full pet right -->
+      <div class="db-two-col">
+
+        <!-- LEFT: stats column -->
+        <div class="db-left-col">
+
+          <!-- XP / Level bar -->
+          <div class="db-xp-row">
+            <div class="level-badge">
+              <div class="level-num" id="xp-level">1</div>
+              <div class="level-label">Level</div>
+            </div>
+            <div class="xp-block">
+              <div class="xp-top">
+                <span class="xp-title" id="xp-level-name">Beginner</span>
+                <span class="xp-count"><span id="xp-current">0</span> / <span id="xp-next">100</span> XP</span>
+              </div>
+              <div class="xp-bar-bg">
+                <div class="xp-bar-fill" id="xp-bar" style="width:0%"></div>
+              </div>
+              <div class="level-name">Next: <span id="xp-next-name">Apprentice</span></div>
+            </div>
+          </div>
+
+          <!-- Goal ring + streak + weekly chart -->
+          <div class="db-hero-row">
+            <div class="db-ring-card">
+              <div class="db-ring-wrap">
+                <svg width="110" height="110" viewBox="0 0 110 110">
+                  <circle cx="55" cy="55" r="46" fill="none" stroke="var(--ring-track)" stroke-width="7"/>
+                  <circle id="dash-ring" cx="55" cy="55" r="46" fill="none" stroke="var(--accent)" stroke-width="7"
+                    stroke-dasharray="289" stroke-dashoffset="289" stroke-linecap="round"
+                    transform="rotate(-90 55 55)" style="transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1)"/>
+                </svg>
+                <div class="db-ring-center">
+                  <span class="db-ring-pct" id="db-ring-pct">0%</span>
+                  <span class="db-ring-sub">today</span>
+                </div>
+              </div>
+              <div class="db-ring-label">Daily Goal</div>
+            </div>
+
+            <div class="db-stat-chips">
+              <div class="db-chip db-chip-fire">
+                <div class="db-chip-val" id="stat-streak">0</div>
+                <div class="db-chip-label">day streak 🔥</div>
+              </div>
+              <div class="db-chip">
+                <div class="db-chip-val" id="stat-tasks">0/0</div>
+                <div class="db-chip-label">tasks done ✅</div>
+              </div>
+            </div>
+
+            <div class="db-week-card">
+              <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:.3rem">This week</div>
+              <div class="weekly-chart db-mini-chart" id="weekly-chart"></div>
+            </div>
+          </div>
+
+          <!-- Daily missions -->
+          <div class="db-missions">
+            <div class="missions-header">
+              <span class="missions-title">🎯 Daily Missions</span>
+              <span class="missions-total" id="missions-total">0 / 3 done</span>
+            </div>
+            <div class="missions-list" id="missions-list"></div>
+          </div>
+
+          <!-- Energy bar -->
+          <div class="card db-energy-card">
+            <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+              <span>⚡ Energy Level</span>
+              <span class="energy-pct" style="font-size:.82rem;color:var(--text2)">100%</span>
+            </div>
+            <div class="energy-bar-track">
+              <div class="energy-bar-fill" style="width:100%"></div>
+            </div>
+            <div style="font-size:.72rem;color:var(--text3);margin-top:.35rem">Takes focus sessions to deplete. Rest &amp; breaks restore it.</div>
+          </div>
+
+          <!-- Start Focus CTA -->
+          <button class="db-focus-cta mod-card" data-module="focus" onclick="showPage('focus')">
+            ⏱ Start a Focus Session
+          </button>
+
+          <!-- Today's Tasks -->
+          <div class="card mod-card db-tasks-card" data-module="tasks">
+            <div class="card-title">
+              Today's Tasks
+              <span id="dash-tasks-urgency" style="float:right;font-size:.7rem"></span>
+            </div>
+            <div id="dash-tasks-list" class="dash-tasks"></div>
+            <button class="link-btn" onclick="showPage('tasks')" style="margin-top:.5rem">All tasks →</button>
+          </div>
+
+          <!-- 30-day streak grid -->
+          <div class="card db-streak-card">
+            <div class="card-title">30-Day Activity</div>
+            <div class="streak-grid" id="streak-grid"></div>
+          </div>
+
+          <!-- Daily Missions -->
+          <div class="card db-missions-card">
+            <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+              <span>⚔️ Daily Missions</span>
+              <span class="missions-total-badge" id="missions-total">0 / 4 done</span>
+            </div>
+            <div id="missions-list"></div>
+          </div>
+
+          <!-- Hidden compat elements -->
+          <span id="stat-wpm" style="display:none"></span>
+          <div id="dash-courses-list" style="display:none"></div>
+
+        </div><!-- /db-left-col -->
+
+        <!-- RIGHT: full pet panel — same content as My Pet page -->
+        <div class="db-right-col">
+          <div class="card db-pet-panel">
+            <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+              <span>🐾 Study Buddy</span>
+              <span class="sparks-display" style="font-size:.78rem;color:var(--amber)">⚡ 0 Sparks</span>
+            </div>
+            <div id="pet-card-content">
+              <div class="empty-state">Loading your buddy...</div>
+            </div>
+          </div>
+        </div><!-- /db-right-col -->
+
+      </div><!-- /db-two-col -->
+
+      <!-- Achievements on Dashboard — button that opens achievements page -->
+      <div class="db-achievements-btn-wrap" style="margin-top:1.25rem">
+        <button class="db-achievements-btn" onclick="showPage('achievements')" id="db-achievements-btn">
+          <div class="db-ach-btn-left">
+            <span class="db-ach-btn-icon">🏆</span>
+            <div class="db-ach-btn-text">
+              <span class="db-ach-btn-title">Achievements</span>
+              <span class="db-ach-btn-sub">View your milestones</span>
+            </div>
+          </div>
+          <div class="db-ach-btn-right">
+            <div class="db-ach-progress-wrap">
+              <div class="db-ach-progress-bar">
+                <div class="db-ach-progress-fill" id="db-ach-progress-fill" style="width:0%"></div>
+              </div>
+              <span class="db-ach-count-label"><span id="db-ach-unlocked">0</span>/<span id="db-ach-total">0</span> &nbsp;<span id="db-ach-pct" style="color:var(--accent);font-weight:700">0%</span></span>
+            </div>
+            <span class="db-ach-arrow">›</span>
+          </div>
+        </button>
+        <!-- Recent unlocks row -->
+        <div class="db-ach-recent-row" id="db-ach-recent-row"></div>
+      </div>
+
+    </div>
+    <!-- ═══════════════════════════════════════ /DASHBOARD ═══════════════════════════════════════ -->
+
+
+    <!-- DAILY LOG PAGE -->
+    <div id="page-daily" class="page">
+      <div class="page-header">
+        <h1>Daily Log</h1>
+        <p class="page-sub">Record what you studied — it flows into your reports automatically.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Log an Entry</div>
+        <div class="form-row">
+          <input type="date" id="log-date" class="input" style="max-width:180px">
+          <input type="text" id="log-activity" class="input" placeholder="What did you do?" style="flex:1">
+        </div>
+        <div class="form-row">
+          <select id="log-category" class="input" style="max-width:160px">
+            <option value="Study">📖 Study</option>
+            <option value="Project">💻 Project</option>
+            <option value="Typing">⌨️ Typing</option>
+            <option value="Exercise">🏃 Exercise</option>
+            <option value="Reading">📕 Reading</option>
+            <option value="Other">⚡ Other</option>
+          </select>
+          <input type="number" id="log-duration" class="input" placeholder="Duration (mins)" style="max-width:160px" min="1">
+          <input type="text" id="log-notes" class="input" placeholder="Notes (optional)" style="flex:1">
+          <button class="btn-primary" onclick="addDailyLog()">+ Add</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Today's Entries <span class="badge" id="today-log-count">0</span></div>
+        <div id="today-logs"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Past Logs</div>
+        <div class="form-row">
+          <input type="month" id="log-filter-month" class="input" style="max-width:180px">
+          <button class="btn-outline" onclick="filterLogs()">Filter</button>
+        </div>
+        <div id="past-logs"></div>
+      </div>
+    </div>
+
+    <!-- TASKS PAGE -->
+    <div id="page-tasks" class="page">
+      <div class="tasks-page-header">
+        <h1>Tasks</h1>
+        <button class="btn-add-task" onclick="toggleAddTaskForm()">+ New task</button>
+      </div>
+
+      <div class="card task-add-card" id="task-add-card" style="display:none">
+        <div class="task-add-row">
+          <input type="text" id="task-input" class="input task-add-input" placeholder="What needs to get done?" autofocus>
+          <select id="task-priority" class="input task-priority-select">
+            <option value="high">🔴 High</option>
+            <option value="medium" selected>🟡 Medium</option>
+            <option value="low">🟢 Low</option>
+          </select>
+        </div>
+        <div class="task-add-details">
+          <input type="date" id="task-due-date" class="input task-detail-input">
+          <input type="time" id="task-due-time" class="input task-detail-input">
+          <select id="task-reminder" class="input task-detail-input">
+            <option value="">No reminder</option>
+            <option value="5">5 min before</option>
+            <option value="15">15 min before</option>
+            <option value="30">30 min before</option>
+            <option value="60">1 hour before</option>
+          </select>
+          <select id="task-repeat" class="input task-detail-input" onchange="onRepeatChange()">
+            <option value="none">No repeat</option>
+            <option value="daily">🔁 Daily</option>
+            <option value="every-n">🔁 Every N days</option>
+          </select>
+        </div>
+        <div class="task-add-details" id="task-repeat-days-row" style="display:none">
+          <label style="font-size:.82rem;color:var(--text2);display:flex;align-items:center;gap:.5rem">
+            Repeat every
+            <input type="number" id="task-repeat-days" class="input" value="2" min="2" max="365" style="width:70px;text-align:center">
+            days
+          </label>
+        </div>
+        <div class="task-add-actions">
+          <button class="btn-primary" onclick="addTask()">Add Task</button>
+          <button class="btn-outline" onclick="toggleAddTaskForm()">Cancel</button>
+        </div>
+      </div>
+
+      <div id="tasks-today-section" class="task-section" style="display:none">
+        <div class="task-section-header task-section-today">
+          <span class="task-section-label">📌 Today</span>
+          <span class="task-section-count" id="tasks-today-count"></span>
+        </div>
+        <div id="tasks-today-list" class="task-section-list"></div>
+      </div>
+
+      <div id="tasks-upcoming-section" class="task-section" style="display:none">
+        <div class="task-section-header">
+          <span class="task-section-label">📅 Upcoming</span>
+          <span class="task-section-count" id="tasks-upcoming-count"></span>
+        </div>
+        <div id="tasks-upcoming-list" class="task-section-list"></div>
+      </div>
+
+      <div id="tasks-someday-section" class="task-section" style="display:none">
+        <div class="task-section-header">
+          <span class="task-section-label">📋 No date</span>
+          <span class="task-section-count" id="tasks-someday-count"></span>
+        </div>
+        <div id="tasks-someday-list" class="task-section-list"></div>
+      </div>
+
+      <div id="tasks-done-section" class="task-section task-done-section" style="display:none">
+        <div class="task-section-header task-section-toggle" onclick="toggleDoneSection()">
+          <span class="task-section-label">✅ Done</span>
+          <span class="task-section-count" id="tasks-done-count"></span>
+          <span class="task-done-chevron" id="done-chevron">▸</span>
+        </div>
+        <div id="tasks-done-list" class="task-section-list" style="display:none"></div>
+      </div>
+
+      <div id="tasks-empty-state" class="empty-state" style="display:none">
+        No tasks yet. Hit <strong>+ New task</strong> to add one.
+      </div>
+
+      <div class="task-progress-row" id="task-progress-row" style="display:none">
+        <div class="completion-bar-wrap"><div class="completion-bar" id="completion-bar"></div></div>
+        <div class="completion-label" id="completion-label"></div>
+      </div>
+    </div>
+
+    <!-- COURSES PAGE -->
+    <div id="page-courses" class="page">
+      <div class="page-header">
+        <h1>Courses</h1>
+        <p class="page-sub">Track time spent on each subject.</p>
+      </div>
+      <div class="card">
+        <div class="form-row">
+          <input type="text" id="course-name" class="input" placeholder="Course name…" style="flex:1">
+          <input type="number" id="course-goal" class="input" placeholder="Weekly goal (hrs)" style="max-width:160px" min="1">
+          <button class="btn-primary" onclick="addCourse()">Add Course</button>
+        </div>
+      </div>
+      <div id="courses-list"></div>
+    </div>
+
+    <!-- FOCUS PAGE -->
+    <div id="page-focus" class="page">
+      <div class="page-header">
+        <h1>Focus Session</h1>
+        <p class="page-sub">Lock in. Go deep. Every session earns XP.</p>
+      </div>
+
+      <div class="focus-split">
+        <!-- LEFT: Timer -->
+        <div class="card focus-left-col focus-center">
+          <div class="focus-preset-chips">
+            <button class="preset-chip" onclick="setAdaptivePreset('pomodoro')">🍅 25 min</button>
+            <button class="preset-chip" onclick="setAdaptivePreset('sprint')">🎮 Sprint Quest</button>
+            <button class="preset-chip" onclick="setAdaptivePreset('exam')">📚 Exam Crunch</button>
+            <button class="preset-chip" onclick="setAdaptivePreset('deepwork')">🌊 Deep Work</button>
+            <button class="preset-chip" onclick="setAdaptivePreset('power')">⚡ Power Block</button>
+          </div>
+
+          <div class="focus-duration-setup">
+            <div class="focus-duration-label">Focus duration</div>
+            <div class="focus-spinner-wrap">
+              <button class="focus-spin-btn" onclick="focusAdjustMins(5)">▲</button>
+              <div class="focus-spin-display" id="focus-spin-display">25</div>
+              <button class="focus-spin-btn" onclick="focusAdjustMins(-5)">▼</button>
+              <span class="focus-spin-unit">mins</span>
+            </div>
+            <div class="focus-break-info">
+              <span class="break-auto-label" id="break-auto-label">1 break · 5 min each</span>
+            </div>
+            <input type="hidden" id="custom-brk" value="5">
+            <input type="hidden" id="custom-count" value="1">
+          </div>
+
+          <div class="sound-toggle-row">
+            <span style="font-size:.8rem;color:var(--text2)">🔔 Sound</span>
+            <label class="toggle-switch"><input type="checkbox" id="sound-toggle" checked><span class="toggle-slider"></span></label>
+            <select id="sound-type" class="input" style="max-width:120px;font-size:.78rem;padding:.35rem .6rem">
+              <option value="bell">Bell</option>
+              <option value="chime">Chime</option>
+              <option value="beep">Beep</option>
+              <option value="digital">Digital</option>
+            </select>
+            <button class="btn-outline" style="font-size:.78rem;padding:.35rem .8rem" onclick="testSound()">▶ Test</button>
+          </div>
+          <div class="sound-toggle-row" style="margin-top:.3rem">
+            <span style="font-size:.8rem;color:var(--text2)">🌊 Soundscape</span>
+            <label class="toggle-switch"><input type="checkbox" id="ambient-noise-toggle" onchange="toggleAmbientNoise(this.checked)"><span class="toggle-slider"></span></label>
+            <select id="ambient-type" class="input" style="max-width:130px;font-size:.78rem;padding:.35rem .6rem" onchange="changeAmbientType(this.value)">
+              <option value="brown">Brown Noise</option>
+              <option value="rain">🌧 Rain</option>
+              <option value="forest">🌿 Forest</option>
+              <option value="cafe">☕ Café</option>
+              <option value="ocean">🌊 Ocean</option>
+            </select>
+          </div>
+
+          <div class="clock-ring">
+            <svg class="clock-svg" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+              <defs>
+                <filter id="glow-focus" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="9" result="coloredBlur"/>
+                  <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+              </defs>
+              <circle cx="120" cy="120" r="104" fill="none" stroke="rgba(30,50,80,0.55)" stroke-width="10"/>
+              <circle cx="120" cy="120" r="104" fill="none" stroke="rgba(56,189,248,0.06)" stroke-width="20"/>
+              <circle id="ring-progress" cx="120" cy="120" r="104" fill="none" stroke="#38bdf8" stroke-width="10"
+                stroke-dasharray="654" stroke-dashoffset="0" stroke-linecap="round" transform="rotate(-90 120 120)"
+                filter="url(#glow-focus)" style="transition:stroke-dashoffset .5s ease,stroke .4s ease"/>
+            </svg>
+            <div class="clock-inner">
+              <div class="clock-mode" id="clock-mode">FOCUS</div>
+              <div class="clock-time" id="clock-display">25:00</div>
+              <div class="clock-session" id="clock-session" style="display:none"></div>
+            </div>
+          </div>
+
+          <!-- Break dots -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:.3rem">
+            <div class="break-dots" id="break-dots"></div>
+            <div id="break-count-label" style="font-size:.7rem;color:var(--text3)"></div>
+          </div>
+
+          <div class="focus-controls">
+            <button class="ctrl-btn" onclick="focusStart()" id="btn-start">▶ Start</button>
+            <button class="ctrl-btn" onclick="focusPause()" id="btn-pause" style="display:none">⏸ Pause</button>
+            <button class="ctrl-btn secondary" onclick="focusReset()">↺ Reset</button>
+          </div>
+
+          <button class="focus-fullscreen-btn" onclick="openFocusFullscreen()" id="btn-fullscreen">⛶ Fullscreen</button>
+        </div>
+
+        <!-- RIGHT: Daily progress + Task selector -->
+        <div class="focus-right-col">
+          <div class="card focus-daily-progress">
+            <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+              <span>Daily Progress</span>
+              <button class="btn-outline focus-goal-edit-btn" onclick="toggleFocusGoalEdit()" title="Edit daily goal">✎ Edit Goal</button>
+            </div>
+            <!-- Inline goal edit panel (hidden by default) -->
+            <div id="focus-goal-edit-panel" style="display:none;margin-bottom:.85rem;padding:.75rem;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border)">
+              <div style="font-size:.75rem;color:var(--text2);margin-bottom:.5rem;font-weight:600">Set daily study goal</div>
+              <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+                <input type="number" id="focus-goal-mins-input" class="input" placeholder="Minutes (e.g. 240)" min="30" max="1440"
+                  style="width:160px;padding:.5rem .75rem;font-size:.85rem">
+                <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+                  <button class="focus-goal-preset-btn" onclick="setFocusGoalPreset(60, event)">1h</button>
+                  <button class="focus-goal-preset-btn" onclick="setFocusGoalPreset(120, event)">2h</button>
+                  <button class="focus-goal-preset-btn" onclick="setFocusGoalPreset(180, event)">3h</button>
+                  <button class="focus-goal-preset-btn" onclick="setFocusGoalPreset(240, event)">4h</button>
+                  <button class="focus-goal-preset-btn" onclick="setFocusGoalPreset(360, event)">6h</button>
+                </div>
+                <button class="btn-primary" onclick="saveFocusGoal()" style="padding:.5rem 1rem;font-size:.83rem">Save</button>
+              </div>
+            </div>
+            <div class="focus-dp-inner">
+              <div class="focus-dp-stat">
+                <div class="focus-dp-val" id="focus-dp-yesterday">0</div>
+                <div class="focus-dp-label">Yesterday<br>minutes</div>
+              </div>
+              <div class="focus-dp-ring-wrap">
+                <svg width="100" height="100" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="40" fill="none" stroke="var(--bg3)" stroke-width="8"/>
+                  <circle id="focus-dp-ring" cx="50" cy="50" r="40" fill="none" stroke="var(--accent)" stroke-width="8"
+                    stroke-dasharray="251" stroke-dashoffset="251" stroke-linecap="round"
+                    transform="rotate(-90 50 50)" style="transition:stroke-dashoffset .8s ease"/>
+                </svg>
+                <div class="focus-dp-ring-inner">
+                  <div class="focus-dp-goal-val" id="focus-dp-goal">4</div>
+                  <div class="focus-dp-goal-sub">hours<br>daily goal</div>
+                </div>
+              </div>
+              <div class="focus-dp-stat">
+                <div class="focus-dp-val" id="focus-dp-streak">0</div>
+                <div class="focus-dp-label">Streak<br>days</div>
+              </div>
+            </div>
+            <div class="focus-dp-completed" id="focus-dp-completed">Completed: 0 minutes</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+              <span>☑️ Select task for this session</span>
+              <button class="btn-outline" style="font-size:.72rem;padding:.25rem .6rem" onclick="showPage('tasks')">+ New task</button>
+            </div>
+            <div id="focus-task-list" class="focus-task-picker"></div>
+            <input type="text" id="focus-task-input" class="input" placeholder="Or type what you're working on…" style="margin-top:.75rem;font-size:.82rem">
+          </div>
+
+          <!-- Brain Dump Panel (PDF-5) -->
+          <div class="card brain-dump-card">
+            <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+              <span>🧠 Brain Dump</span>
+              <button class="btn-outline" style="font-size:.72rem;padding:.25rem .6rem" onclick="clearBrainDump()">Clear all</button>
+            </div>
+            <p style="font-size:.75rem;color:var(--text3);margin-bottom:.6rem">Distracted by a thought? Park it here and stay focused.</p>
+            <div style="display:flex;gap:.5rem">
+              <input type="text" id="brain-dump-input" class="input" placeholder="Quick thought to revisit later…" style="flex:1;font-size:.82rem" onkeydown="if(event.key==='Enter')addBrainDumpItem()">
+              <button class="btn-primary" style="padding:.5rem .9rem;font-size:.82rem" onclick="addBrainDumpItem()">Park it</button>
+            </div>
+            <div id="brain-dump-list" style="margin-top:.6rem"></div>
+          </div>
+
+          <!-- Energy Bar -->
+          <div class="card energy-card">
+            <div class="card-title">⚡ Energy</div>
+            <p style="font-size:.75rem;color:var(--text3);margin-bottom:.5rem">Depletes during focus. Rest to restore.</p>
+            <div class="energy-bar-track">
+              <div class="energy-bar-fill" style="width:100%"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--text3);margin-top:.3rem">
+              <span>Energy level</span><span class="energy-pct">100%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:1rem">
+        <div class="card-title">Today's Focus Log</div>
+        <div id="focus-log"></div>
+      </div>
+    </div>
+
+    <!-- TYPING WPM PAGE -->
+    <div id="page-typing" class="page">
+      <div class="page-header">
+        <h1>Typing WPM Tracker</h1>
+        <p class="page-sub">Record your typing speed results from any test you've taken.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Log a WPM Record</div>
+        <div class="form-row">
+          <input type="number" id="wpm-value" class="input" placeholder="WPM score" style="max-width:140px" min="1">
+          <input type="number" id="wpm-accuracy" class="input" placeholder="Accuracy %" style="max-width:140px" min="1" max="100">
+          <input type="text" id="wpm-source" class="input" placeholder="Source (e.g. monkeytype)" style="flex:1">
+          <button class="btn-primary" onclick="addWpmRecord()">Save Record</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">WPM History</div>
+        <div id="wpm-chart" class="wpm-bar-chart"></div>
+        <div id="wpm-list" class="wpm-list"></div>
+      </div>
+      <div class="stats-grid" style="margin-top:1rem">
+        <div class="stat-card"><div class="stat-label">Best WPM</div><div class="stat-value" id="wpm-best">—</div></div>
+        <div class="stat-card"><div class="stat-label">Latest WPM</div><div class="stat-value" id="wpm-latest">—</div></div>
+        <div class="stat-card"><div class="stat-label">Average WPM</div><div class="stat-value" id="wpm-avg">—</div></div>
+        <div class="stat-card"><div class="stat-label">Tests Logged</div><div class="stat-value" id="wpm-count">0</div></div>
+      </div>
+    </div>
+
+    <!-- REPORTS PAGE -->
+    <div id="page-reports" class="page">
+      <div class="page-header">
+        <h1>Reports</h1>
+        <p class="page-sub">Weekly and monthly breakdowns of your progress.</p>
+      </div>
+      <div class="tab-bar">
+        <button class="tab active" onclick="switchReportTab('weekly')">Weekly</button>
+        <button class="tab" onclick="switchReportTab('monthly')">Monthly</button>
+      </div>
+      <div id="report-weekly">
+        <div class="form-row" style="margin-bottom:1rem">
+          <label style="font-size:14px;opacity:.7">Select week:</label>
+          <input type="date" id="report-week-date" class="input" style="max-width:180px">
+          <button class="btn-outline" onclick="generateWeeklyReport()">Generate</button>
+        </div>
+        <div id="weekly-report-content"></div>
+      </div>
+      <div id="report-monthly" style="display:none">
+        <div class="form-row" style="margin-bottom:1rem">
+          <label style="font-size:14px;opacity:.7">Select month:</label>
+          <input type="month" id="report-month" class="input" style="max-width:180px">
+          <button class="btn-outline" onclick="generateMonthlyReport()">Generate</button>
+        </div>
+        <div id="monthly-report-content"></div>
+      </div>
+    </div>
+
+    <!-- TRASH PAGE -->
+    <div id="page-trash" class="page">
+      <div class="page-header">
+        <h1>🗑️ Trash</h1>
+        <p class="page-sub">Items deleted after 7 days. Restore below.</p>
+      </div>
+      <div class="trash-toolbar">
+        <div class="trash-tabs">
+          <button class="tab active" id="trash-tab-tasks" onclick="switchTrashTab('tasks')">Tasks</button>
+          <button class="tab" id="trash-tab-logs" onclick="switchTrashTab('logs')">Daily Logs</button>
+        </div>
+        <button class="btn-outline trash-empty-btn" onclick="emptyTrash()" style="font-size:.8rem;padding:.45rem 1rem;border-color:var(--red);color:var(--red)">🗑 Empty Trash</button>
+      </div>
+      <div id="trash-tasks-panel"><div id="trash-tasks-list"></div></div>
+      <div id="trash-logs-panel" style="display:none"><div id="trash-logs-list"></div></div>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div id="page-settings" class="page">
+      <div class="page-header">
+        <h1>Settings</h1>
+        <p class="page-sub">Personalise your DeepTrck experience.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Your Profile</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Study Goal</div>
+            <div class="settings-sub" id="settings-goal-display">Not set</div>
+          </div>
+          <button class="btn-outline" onclick="openGoalEdit()">Edit</button>
+        </div>
+        <div id="goal-edit-panel" style="display:none;margin-top:.75rem">
+          <div class="form-row">
+            <input type="text" id="settings-study-goal" class="input" placeholder="e.g. Crack JEE, Learn Python…" style="flex:1">
+            <input type="number" id="settings-daily-mins" class="input" placeholder="Daily mins target" style="max-width:160px" min="30">
+            <button class="btn-primary" onclick="saveGoalEdit()">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Active Modules</div>
+        <p style="font-size:.8rem;color:var(--text2);margin-bottom:1rem">Toggle sections on or off.</p>
+        <div class="settings-modules">
+          <div class="settings-module-row"><div><div class="settings-label">Daily Log</div><div class="settings-sub">Track daily studies</div></div><label class="toggle-switch"><input type="checkbox" id="toggle-daily" onchange="toggleModule('daily',this.checked)"><span class="toggle-slider"></span></label></div>
+          <div class="settings-module-row"><div><div class="settings-label">Tasks</div><div class="settings-sub">Task planner</div></div><label class="toggle-switch"><input type="checkbox" id="toggle-tasks" onchange="toggleModule('tasks',this.checked)"><span class="toggle-slider"></span></label></div>
+          <div class="settings-module-row"><div><div class="settings-label">Courses</div><div class="settings-sub">Subject tracker</div></div><label class="toggle-switch"><input type="checkbox" id="toggle-courses" onchange="toggleModule('courses',this.checked)"><span class="toggle-slider"></span></label></div>
+          <div class="settings-module-row"><div><div class="settings-label">Focus Timer</div><div class="settings-sub">Pomodoro & deep work</div></div><label class="toggle-switch"><input type="checkbox" id="toggle-focus" onchange="toggleModule('focus',this.checked)"><span class="toggle-slider"></span></label></div>
+          <div class="settings-module-row"><div><div class="settings-label">Typing WPM</div><div class="settings-sub">Speed tracking</div></div><label class="toggle-switch"><input type="checkbox" id="toggle-typing" onchange="toggleModule('typing',this.checked)"><span class="toggle-slider"></span></label></div>
+          <div class="settings-module-row"><div><div class="settings-label">Reports</div><div class="settings-sub">Weekly & monthly stats</div></div><label class="toggle-switch"><input type="checkbox" id="toggle-reports" onchange="toggleModule('reports',this.checked)"><span class="toggle-slider"></span></label></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Appearance</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Base Interface Theme Mode</div>
+            <div class="settings-sub">Toggle workspace view between light and dark backgrounds</div>
+          </div>
+          <button class="btn-outline" onclick="toggleTheme()" id="theme-btn">🌙 Dark Mode</button>
+        </div>
+        <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.5rem; margin-top: 0.75rem;">
+          <div>
+            <div class="settings-label">Workspace Accent Colour</div>
+            <div class="settings-sub">Select your preferred colour across system highlights</div>
+          </div>
+          <div class="theme-picker-grid">
+            <div class="accent-dot" style="background:#38bdf8;" data-pick="blue"   onclick="selectAccent('blue')"></div>
+            <div class="accent-dot" style="background:#ef4444;" data-pick="red"    onclick="selectAccent('red')"></div>
+            <div class="accent-dot" style="background:#ec4899;" data-pick="pink"   onclick="selectAccent('pink')"></div>
+            <div class="accent-dot" style="background:#10b981;" data-pick="green"  onclick="selectAccent('green')"></div>
+            <div class="accent-dot" style="background:#8b5cf6;" data-pick="purple" onclick="selectAccent('purple')"></div>
+            <div class="accent-dot" style="background:#f97316;" data-pick="orange" onclick="selectAccent('orange')"></div>
+            <div class="accent-dot" style="background:#06b6d4;" data-pick="cyan"   onclick="selectAccent('cyan')"></div>
+            <div class="accent-dot" style="background:#f59e0b;" data-pick="amber"  onclick="selectAccent('amber')"></div>
+            <div class="accent-dot" style="background:#14b8a6;" data-pick="teal"   onclick="selectAccent('teal')"></div>
+            <div class="accent-dot" style="background:#fb7185;" data-pick="rose"   onclick="selectAccent('rose')"></div>
+            <div class="accent-dot" style="background:#334155;" data-pick="black"  onclick="selectAccent('black')"></div>
+            <div class="accent-dot" style="background:#e2e8f0; border-color:rgba(0,0,0,0.15);" data-pick="white" onclick="selectAccent('white')"></div>
+          </div>
+        </div>
+        <div class="settings-row" style="margin-top:.75rem">
+          <div><div class="settings-label">Push Notifications</div><div class="settings-sub">Task reminders when tab is closed</div></div>
+          <button class="btn-outline" onclick="requestNotifications()">🔔 Enable</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🗑️ Trash</div>
+        <p style="font-size:.8rem;color:var(--text2);margin-bottom:1rem">Items deleted after 7 days. Restore below.</p>
+        <div class="trash-toolbar" style="margin-bottom:.75rem">
+          <div class="trash-tabs">
+            <button class="tab active" id="trash-tab-tasks" onclick="switchTrashTab('tasks')">Tasks</button>
+            <button class="tab" id="trash-tab-logs" onclick="switchTrashTab('logs')">Daily Logs</button>
+          </div>
+          <button class="btn-outline trash-empty-btn" onclick="emptyTrash()" style="font-size:.8rem;padding:.45rem 1rem;border-color:var(--red);color:var(--red)">🗑 Empty Trash</button>
+        </div>
+        <div id="trash-tasks-panel"><div id="trash-tasks-list"></div></div>
+        <div id="trash-logs-panel" style="display:none"><div id="trash-logs-list"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="settings-row">
+          <div><div class="settings-label">Delete Account</div><div class="settings-sub">Permanently erase all data</div></div>
+          <button class="btn-outline" style="border-color:var(--red);color:var(--red)" onclick="confirmDeleteAccount()">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PET WORLD PAGE -->
+    <div id="page-petworld" class="page">
+      <div class="page-header">
+        <h1>🐾 Pet World</h1>
+        <p class="page-sub">Your study companion lives here. Care for it and watch it evolve!</p>
+      </div>
+
+      <!-- Pet evolution banner -->
+      <div class="petworld-evolution-banner" id="petworld-evo-banner">
+        <div class="evo-stages">
+          <div class="evo-stage" data-stage="egg">🥚<span>Egg</span></div>
+          <div class="evo-stage" data-stage="baby">🐣<span>Baby</span></div>
+          <div class="evo-stage" data-stage="teen">🐾<span>Teen</span></div>
+          <div class="evo-stage" data-stage="adult">⭐<span>Adult</span></div>
+          <div class="evo-stage" data-stage="legendary">👑<span>Legendary</span></div>
+        </div>
+        <div class="evo-progress-wrap"><div class="evo-progress-fill" id="evo-progress-fill"></div></div>
+        <div id="evo-stage-label" style="font-size:.75rem;color:var(--text2);text-align:center;margin-top:.35rem"></div>
+      </div>
+
+      <div class="petworld-grid">
+        <!-- Left: 3D / animated pet room -->
+        <div class="card petworld-room-card">
+          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span id="petworld-pet-name">Study Buddy</span>
+            <div style="display:flex;gap:.5rem;align-items:center">
+              <span style="font-size:.78rem;color:var(--amber)">⚡ <span id="petworld-sparks">0</span> Sparks</span>
+              <span style="font-size:.78rem;color:var(--text3)">🪙 <span id="petworld-coins">0</span> Coins</span>
+            </div>
+          </div>
+          <div id="petworld-main-content">
+            <div class="empty-state">Loading your buddy...</div>
+          </div>
+          <!-- Stat meters -->
+          <div class="pet-meters" id="pet-meters" style="display:none">
+            <div class="pet-meter-row">
+              <span class="pet-meter-label">🍗 Hunger</span>
+              <div class="pet-meter-track"><div class="pet-meter-fill hunger-fill" id="pw-hunger-fill"></div></div>
+              <span class="pet-meter-val" id="pw-hunger-val">100%</span>
+            </div>
+            <div class="pet-meter-row">
+              <span class="pet-meter-label">😊 Happiness</span>
+              <div class="pet-meter-track"><div class="pet-meter-fill happiness-fill" id="pw-happiness-fill"></div></div>
+              <span class="pet-meter-val" id="pw-happiness-val">100%</span>
+            </div>
+            <div class="pet-meter-row">
+              <span class="pet-meter-label">⚡ Energy</span>
+              <div class="pet-meter-track"><div class="pet-meter-fill energy-fill-pet" id="pw-energy-fill"></div></div>
+              <span class="pet-meter-val" id="pw-energy-val">100%</span>
+            </div>
+          </div>
+          <!-- Action buttons -->
+          <div class="petworld-actions" id="petworld-actions" style="display:none">
+            <button class="btn-primary" onclick="showPage('focus')">⏱ Study (earn XP)</button>
+            <button class="btn-outline" onclick="openFeedModal()">🍗 Feed Pet</button>
+          </div>
+        </div>
+
+        <!-- Right: Pet diary + stats -->
+        <div class="card petworld-diary-card">
+          <div class="card-title">📖 Pet Diary</div>
+          <div id="petworld-diary-content" style="font-size:.82rem;color:var(--text2)">
+            <div class="empty-state">Hatch a pet to start your diary!</div>
+          </div>
+          <!-- Wardrobe -->
+          <div style="margin-top:1rem">
+            <div class="card-title" style="font-size:.85rem;margin-bottom:.6rem">👗 Wardrobe</div>
+            <div id="petworld-wardrobe"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feed modal has been moved to global scope below -->
+    </div>
+
+    <!-- ACHIEVEMENTS PAGE -->
+    <div id="page-achievements" class="page">
+      <div class="page-header">
+        <h1>🏆 Achievements</h1>
+        <p class="page-sub">Milestones you've unlocked on your study journey.</p>
+      </div>
+      <div class="achievements-stats-row">
+        <div class="stat-card"><div class="stat-label">Unlocked</div><div class="stat-value" id="ach-unlocked-count">0</div></div>
+        <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value" id="ach-total-count">0</div></div>
+        <div class="stat-card"><div class="stat-label">Completion</div><div class="stat-value" id="ach-completion-pct">0%</div></div>
+      </div>
+      <div class="achievements-grid" id="achievements-grid"></div>
+    </div>
+
+    <!-- OLD PET PAGE (hidden, kept for backwards compat) -->
+    <div id="page-pet" class="page" style="display:none!important">
+      <div id="pet-page-content"></div>
+      <div id="pet-diary-content"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- FULLSCREEN FOCUS OVERLAY -->
+<div class="focus-fullscreen-overlay" id="focus-fullscreen-overlay">
+  <div style="position:absolute;top:1.5rem;right:1.75rem;display:flex;gap:.6rem">
+    <button class="fs-close-btn" style="position:static" id="fs-minimal-btn" onclick="toggleMinimalFullscreen()">🧘 Minimal View</button>
+    <button class="fs-close-btn" style="position:static" onclick="closeFocusFullscreen()">✕ Exit</button>
+  </div>
+  <div class="fs-task-label" id="fs-task-label">Focus session</div>
+  <div class="fs-clock-ring">
+    <svg width="280" height="280" viewBox="0 0 360 360" style="overflow:visible">
+      <defs>
+        <filter id="glow-fs" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="10" result="coloredBlur"/>
+          <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <circle cx="180" cy="180" r="158" fill="none" stroke="rgba(30,50,80,0.5)" stroke-width="12"/>
+      <circle id="fs-ring-progress" cx="180" cy="180" r="158" fill="none" stroke="#38bdf8" stroke-width="12"
+        stroke-dasharray="993" stroke-dashoffset="0" stroke-linecap="round" transform="rotate(-90 180 180)"
+        filter="url(#glow-fs)" style="transition:stroke-dashoffset .5s ease,stroke .4s ease"/>
+    </svg>
+    <div class="fs-clock-inner">
+      <div class="fs-clock-mode" id="fs-clock-mode">FOCUS</div>
+      <div class="fs-clock-time" id="fs-clock-time">25:00</div>
+      <div class="fs-clock-session" id="fs-clock-session"></div>
+    </div>
+  </div>
+  <div class="fs-controls">
+    <button class="ctrl-btn" onclick="focusStart()" id="fs-btn-start">▶ Start</button>
+    <button class="ctrl-btn" onclick="focusPause()" id="fs-btn-pause" style="display:none">⏸ Pause</button>
+    <button class="ctrl-btn secondary" onclick="focusReset()">↺ Reset</button>
+  </div>
+</div>
+
+<!-- WELLNESS INTERCEPT OVERLAY -->
+<div id="wellness-intercept" style="display:none;position:fixed;inset:0;background:rgba(5,13,26,.97);z-index:9990;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;text-align:center;padding:2rem">
+  <div style="font-size:2rem">😮‍💨</div>
+  <h2 style="font-size:1.4rem;font-weight:700;color:#38bdf8">Time for a real break</h2>
+  <p style="color:var(--text2);max-width:400px;font-size:.9rem">Your energy ran out. Step back from the screen, breathe, and recharge before your next session.</p>
+  <div id="breathing-ring" style="width:120px;height:120px;border-radius:50%;border:4px solid #38bdf8;display:flex;align-items:center;justify-content:center;transition:transform 4s ease-in-out">
+    <span id="breathing-label" style="font-size:.82rem;color:var(--text2)">Breathe In...</span>
+  </div>
+  <p style="font-size:.78rem;color:var(--text3)">🔍 20-20-20 rule: look at something 20 feet away for 20 seconds to reduce eye strain</p>
+  <button class="btn-primary" onclick="closeWellnessIntercept()" style="margin-top:.5rem">I've rested — Resume 💪</button>
+</div>
+
+<!-- GLOBAL FEED MODAL -->
+<div id="feed-modal" style="display:none;position:fixed;inset:0;z-index:2000">
+  <div class="modal-backdrop" onclick="closeFeedModal()"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">🍗 Feed Your Pet</span>
+      <button class="modal-close" onclick="closeFeedModal()">✕</button>
+    </div>
+    <p style="font-size:.8rem;color:var(--text2);margin-bottom:1rem">Spend Sparks to restore hunger. Sparks are earned by studying!</p>
+    <div id="feed-food-grid" class="feed-food-grid"></div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+  <button class="mob-nav-btn" onclick="showPage('dashboard')" data-page="dashboard">
+    <span>⊞</span><span>Home</span>
+  </button>
+  <button class="mob-nav-btn" onclick="showPage('tasks')" data-page="tasks">
+    <span>☑️</span><span>Tasks</span>
+  </button>
+  <button class="mob-nav-btn mob-nav-center" onclick="openQuickLog()">
+    <span>⚡</span><span>Log</span>
+  </button>
+  <button class="mob-nav-btn" onclick="showPage('focus')" data-page="focus">
+    <span>⏳</span><span>Focus</span>
+  </button>
+  <button class="mob-nav-btn" onclick="showPage('petworld')" data-page="petworld">
+    <span>🐾</span><span>Pet</span>
+  </button>
+</nav>
+
+<script src="pet.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
