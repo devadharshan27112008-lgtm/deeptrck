@@ -132,3 +132,15 @@ Features:
 - Weekly & monthly reports with badges
 - Enhanced Study Buddy pet with SVG avatars and shop
 - PWA — add to home screen on your phone
+
+## How to Update the Website
+
+1. Make your changes to any file
+2. Open VS Code terminal (Ctrl + `)
+3. Run these commands:
+
+git add .
+git commit -m "describe your change"
+git push
+
+Vercel will auto-deploy in ~30 seconds.
