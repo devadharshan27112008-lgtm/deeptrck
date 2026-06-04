@@ -97,6 +97,10 @@ const SPARKLE_POS = [
   {top:'38%',left:'15%',delay:'1.9s'},
 ];
 
+// Expose getPetSVG and PET_UNLOCK_LEVELS for unlock modal
+window._getPetSVG = getPetSVG;
+window.PET_UNLOCK_LEVELS = PET_UNLOCK_LEVELS;
+
 window.PET_SHOP = { food:[
   {id:'kibble',      name:'Kibble',      icon:'🥣',cost:10, hunger:10,hungerPct:'+10%'},
   {id:'berry_snack', name:'Berry Snack', icon:'🍓',cost:20, hunger:18,hungerPct:'+18%'},
@@ -701,16 +705,38 @@ function buildHatchPanel(containerId) {
       </div>
 
       <input type="text" id="pet-name-input-${containerId}" class="input"
-        placeholder="Name your buddy…" style="width:100%;text-align:center;margin-bottom:.55rem;box-sizing:border-box">
+        placeholder="Name your buddy…"
+        style="width:100%;text-align:center;margin-bottom:.55rem;box-sizing:border-box;font-weight:600">
+      <div style="font-size:.62rem;color:var(--text3);margin-top:-.35rem;margin-bottom:.55rem">
+        Leave blank to use this name, or type your own
+      </div>
       <button class="btn-primary" style="width:100%" id="hatch-btn-${containerId}">🥚 Hatch!</button>
     </div>`;
 
-  // Attach hatch button after DOM insertion
+  // Attach hatch button + default name logic after DOM insertion
   setTimeout(() => {
+    // Pre-fill default name for the initially selected archetype
+    const nameInput = document.getElementById('pet-name-input-' + containerId);
+    const initialChecked = document.querySelector(\`input[name="pet-archetype-\${containerId}"]:checked\`);
+    const initialArch = initialChecked ? initialChecked.value : 'cat';
+    if (nameInput && window.getDefaultPetName) {
+      nameInput.value = window.getDefaultPetName(initialArch);
+    }
+
+    // Update default name when user picks a different pet
+    document.querySelectorAll(\`input[name="pet-archetype-\${containerId}"]\`).forEach(radio => {
+      radio.addEventListener('change', function() {
+        const ni = document.getElementById('pet-name-input-' + containerId);
+        if (ni && window.getDefaultPetName) {
+          ni.value = window.getDefaultPetName(this.value);
+        }
+      });
+    });
+
     const btn = document.getElementById('hatch-btn-' + containerId);
     if (btn) {
       btn.onclick = function() {
-        const checked = document.querySelector(`input[name="pet-archetype-${containerId}"]:checked`);
+        const checked = document.querySelector(\`input[name="pet-archetype-\${containerId}"]:checked\`);
         const archetype = checked ? checked.value : 'cat';
         const nameEl = document.getElementById('pet-name-input-' + containerId);
         const name = nameEl ? nameEl.value : '';
@@ -781,14 +807,12 @@ window.renderEnhancedPetCard = function(containerId) {
   container.appendChild(sparksEl);
 
   // Scene (SVG pet)
-  // Force rebuild if existing scene wrap is no longer in the DOM
-  const existingWrap = document.getElementById('pet-scene-wrap-'+containerId);
-  const sceneIsInDOM = existingWrap && document.body.contains(existingWrap);
-  if (needsNewScene || !sceneIsInDOM) {
+  if (needsNewScene) {
     const sceneDiv = buildScene(containerId, null, config, mood);
     container.appendChild(sceneDiv);
   } else {
-    container.appendChild(existingWrap);
+    const existingWrap = document.getElementById('pet-scene-wrap-'+containerId);
+    if (existingWrap) container.appendChild(existingWrap);
   }
 
   // Dashboard card only shows pet — no tabs
@@ -864,10 +888,6 @@ document.addEventListener('DOMContentLoaded', function() {
       window.installEnhancedFeedPet?.();
       setTimeout(() => {
         window.renderEnhancedPetCard?.('pet-card-content');
-        // Also render pet-page-content if it exists (Pet World page)
-        if (document.getElementById('pet-page-content')) {
-          window.renderEnhancedPetCard?.('pet-page-content');
-        }
       }, 100);
     }
     if (attempts > 40) clearInterval(tryInit); // stop after 4s
