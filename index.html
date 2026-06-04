@@ -234,8 +234,28 @@
       <div class="topbar-title" id="topbar-title">Dashboard</div>
       <div class="topbar-date" id="topbar-date"></div>
       <div class="topbar-coins" id="topbar-coins">🪙 <span id="topbar-coins-val">0</span></div>
-      <button class="topbar-quicklog" onclick="openQuickLog()" title="Quick Log">⚡ Log</button>
+      <div class="topbar-actions">
+        <button class="topbar-action-btn" onclick="toggleMissionsPanel()" id="missions-topbar-btn" title="Daily Missions">
+          🎯 <span class="topbar-action-label">Missions</span>
+          <span class="missions-badge" id="missions-badge">0/4</span>
+        </button>
+        <button class="topbar-action-btn" onclick="showPage('achievements')" title="Achievements">
+          🏆 <span class="topbar-action-label">Achievements</span>
+        </button>
+        <button class="topbar-quicklog" onclick="openQuickLog()" title="Quick Log">⚡ Log</button>
+      </div>
     </div>
+
+    <!-- Daily Missions Dropdown Panel -->
+    <div id="missions-panel" class="missions-panel" style="display:none">
+      <div class="missions-panel-header">
+        <span class="missions-panel-title">🎯 Daily Missions</span>
+        <span class="missions-total-badge" id="missions-total">0 / 4 done</span>
+        <button class="missions-panel-close" onclick="toggleMissionsPanel()">✕</button>
+      </div>
+      <div class="missions-list" id="missions-list"></div>
+    </div>
+    <div class="missions-panel-backdrop" id="missions-backdrop" onclick="toggleMissionsPanel()" style="display:none"></div>
 
     <!-- ═══════════════════════════════════════ DASHBOARD ═══════════════════════════════════════ -->
     <div id="page-dashboard" class="page active">
@@ -311,14 +331,7 @@
             </div>
           </div>
 
-          <!-- Daily missions -->
-          <div class="db-missions">
-            <div class="missions-header">
-              <span class="missions-title">🎯 Daily Missions</span>
-              <span class="missions-total" id="missions-total">0 / 3 done</span>
-            </div>
-            <div class="missions-list" id="missions-list"></div>
-          </div>
+
 
           <!-- Energy bar -->
           <div class="card db-energy-card">
@@ -353,14 +366,7 @@
             <div class="streak-grid" id="streak-grid"></div>
           </div>
 
-          <!-- Daily Missions -->
-          <div class="card db-missions-card">
-            <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
-              <span>⚔️ Daily Missions</span>
-              <span class="missions-total-badge" id="missions-total">0 / 4 done</span>
-            </div>
-            <div id="missions-list"></div>
-          </div>
+
 
           <!-- Hidden compat elements -->
           <span id="stat-wpm" style="display:none"></span>
@@ -383,29 +389,7 @@
 
       </div><!-- /db-two-col -->
 
-      <!-- Achievements on Dashboard — button that opens achievements page -->
-      <div class="db-achievements-btn-wrap" style="margin-top:1.25rem">
-        <button class="db-achievements-btn" onclick="showPage('achievements')" id="db-achievements-btn">
-          <div class="db-ach-btn-left">
-            <span class="db-ach-btn-icon">🏆</span>
-            <div class="db-ach-btn-text">
-              <span class="db-ach-btn-title">Achievements</span>
-              <span class="db-ach-btn-sub">View your milestones</span>
-            </div>
-          </div>
-          <div class="db-ach-btn-right">
-            <div class="db-ach-progress-wrap">
-              <div class="db-ach-progress-bar">
-                <div class="db-ach-progress-fill" id="db-ach-progress-fill" style="width:0%"></div>
-              </div>
-              <span class="db-ach-count-label"><span id="db-ach-unlocked">0</span>/<span id="db-ach-total">0</span> &nbsp;<span id="db-ach-pct" style="color:var(--accent);font-weight:700">0%</span></span>
-            </div>
-            <span class="db-ach-arrow">›</span>
-          </div>
-        </button>
-        <!-- Recent unlocks row -->
-        <div class="db-ach-recent-row" id="db-ach-recent-row"></div>
-      </div>
+
 
     </div>
     <!-- ═══════════════════════════════════════ /DASHBOARD ═══════════════════════════════════════ -->
@@ -1083,7 +1067,7 @@
   </button>
 </nav>
 
+<script src="pet.js"></script>
 <script type="module" src="app.js"></script>
-<script type="module" src="pet.js"></script>
 </body>
 </html>

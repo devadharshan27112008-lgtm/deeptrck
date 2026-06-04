@@ -587,8 +587,6 @@ function renderPage(name) {
   if (name === 'petworld') {
     setTimeout(() => {
       renderPetWorld();
-      // Give renderPetWorld time to write pet-page-content into DOM, then render SVG
-      setTimeout(() => _renderPetPageContent(), 80);
     }, 100);
   }
   if (name === 'achievements') {
@@ -2744,6 +2742,12 @@ function renderMissions(logs, tasks, focusSessions, goalMins) {
   const totalEl = document.getElementById('missions-total');
   const listEl  = document.getElementById('missions-list');
   if (totalEl) totalEl.textContent = done + ' / ' + missions.length + ' done';
+  // Update topbar badge
+  const badge = document.getElementById('missions-badge');
+  if (badge) {
+    badge.textContent = done + '/' + missions.length;
+    badge.classList.toggle('done', done === missions.length);
+  }
   if (!listEl) return;
   listEl.innerHTML = missions.map(m => `
     <div class="mission-item ${m.done ? 'done' : ''}">
@@ -2753,6 +2757,17 @@ function renderMissions(logs, tasks, focusSessions, goalMins) {
       <div class="mission-check">${m.done ? '✓' : ''}</div>
     </div>`).join('');
 }
+
+// ── Toggle Missions Panel ──────────────────────────────────────────────────
+function toggleMissionsPanel() {
+  const panel = document.getElementById('missions-panel');
+  const backdrop = document.getElementById('missions-backdrop');
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if (backdrop) backdrop.style.display = isOpen ? 'none' : 'block';
+}
+window.toggleMissionsPanel = toggleMissionsPanel;
 
 const LS_MISSIONS = 'deeptrck-missions-done';
 function getMissionsDone() {
@@ -3091,48 +3106,15 @@ window.getXpState = getXpState;
 window.getLevelInfo = getLevelInfo;
 window.hatchPet = hatchPet;
 window.showToast = showToast;
-window.renderPetWorld = renderPetWorld;
-
-// ─── Helper: render pet SVG into pet-page-content ─────────────────────────
-function _renderPetPageContent() {
-  // Poll until the container exists in the DOM and renderer is ready
-  let tries = 0;
-  const poll = setInterval(() => {
-    tries++;
-    const pc = document.getElementById('pet-page-content');
-    if (pc && typeof window.renderEnhancedPetCard === 'function') {
-      clearInterval(poll);
-      window.renderEnhancedPetCard('pet-page-content');
-    }
-    if (tries > 30) clearInterval(poll);
-  }, 50);
-}
-window._renderPetPageContent = _renderPetPageContent;
-
-// Install enhanced feed + re-render when pet system signals ready
-function _onPetSystemReady() {
-  if (typeof window.installEnhancedFeedPet === 'function') {
-    window.installEnhancedFeedPet();
-  }
-  // Render dashboard card
-  setTimeout(() => {
-    if (typeof window.renderEnhancedPetCard === 'function') {
-      window.renderEnhancedPetCard('pet-card-content');
-    }
-  }, 50);
-}
-
-if (window._petSystemReady) {
-  _onPetSystemReady();
+// Install enhanced feed + re-render now that internals are available
+if (typeof window.installEnhancedFeedPet === 'function') {
+  window.installEnhancedFeedPet();
 } else {
-  window.addEventListener('petSystemReady', _onPetSystemReady, { once: true });
-  // Fallback: also try after a delay in case event already fired
-  setTimeout(() => {
-    if (typeof window.installEnhancedFeedPet === 'function') window.installEnhancedFeedPet();
-    if (typeof window.renderEnhancedPetCard === 'function') {
-      window.renderEnhancedPetCard('pet-card-content');
-    }
-  }, 800);
+  window.feedPet = feedPet; // fallback if pet.js not loaded
+}
+// Render pet card on load — pet.js SVG renderer takes priority
+if (typeof window.renderEnhancedPetCard === 'function') {
+  setTimeout(() => window.renderEnhancedPetCard('pet-card-content'), 400);
 }
 
 // Pet hunger check — apply debuff if fatigued
@@ -3539,9 +3521,12 @@ function renderPetWorld() {
   const actionsEl = document.getElementById('petworld-actions');
 
   if (!pet) {
+    // Use SVG-based hatch panel from pet.js if available
     if (mainContent) {
       mainContent.innerHTML = '<div id="pet-page-content" style="padding:.5rem 0"></div>';
-      _renderPetPageContent();
+      if (typeof window.renderEnhancedPetCard === 'function') {
+        setTimeout(() => window.renderEnhancedPetCard('pet-page-content'), 0);
+      }
     }
     if (metersEl) metersEl.style.display = 'none';
     if (actionsEl) actionsEl.style.display = 'none';
@@ -3552,10 +3537,15 @@ function renderPetWorld() {
     const petNameEl = document.getElementById('petworld-pet-name');
     if (petNameEl) petNameEl.textContent = petNameLabel;
 
+    // Use SVG renderer from pet.js
     if (mainContent) {
-      // Always rebuild so SVG is never stale
-      mainContent.innerHTML = '<div id="pet-page-content" style="padding:.5rem 0"></div>';
-      _renderPetPageContent();
+      // Only rebuild if container doesn't already have the SVG pet content
+      if (!document.getElementById('pet-page-content')) {
+        mainContent.innerHTML = '<div id="pet-page-content" style="padding:.5rem 0"></div>';
+      }
+      if (typeof window.renderEnhancedPetCard === 'function') {
+        setTimeout(() => window.renderEnhancedPetCard('pet-page-content'), 0);
+      }
     }
 
     // Update meters

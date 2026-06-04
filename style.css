@@ -601,13 +601,79 @@ aside.sidebar.collapsed .sidebar-bottom .nav-icon {
 .topbar-title { font-weight: 600; font-size: .95rem; letter-spacing: -.01em; }
 .topbar-date { color: var(--text2); font-size: .75rem; font-family: var(--mono); }
 .topbar-quicklog {
-  margin-left: auto;
   padding: .42rem .95rem; border-radius: var(--radius-sm);
   background: var(--accent2); border: none;
   color: #fff; font-family: var(--font); font-size: .78rem; font-weight: 600;
   cursor: pointer; transition: var(--transition);
 }
 .topbar-quicklog:hover { background: var(--accent); }
+
+/* ── Topbar action buttons (Missions + Achievements) ── */
+.topbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+.topbar-action-btn {
+  display: flex; align-items: center; gap: .35rem;
+  padding: .38rem .75rem; border-radius: var(--radius-sm);
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text2); font-family: var(--font); font-size: .75rem;
+  font-weight: 600; cursor: pointer; transition: var(--transition);
+  position: relative;
+}
+.topbar-action-btn:hover {
+  background: var(--accent2); color: #fff; border-color: var(--accent2);
+}
+.topbar-action-label { display: inline; }
+.missions-badge {
+  background: var(--accent2); color: #fff;
+  border-radius: 999px; font-size: .6rem; font-weight: 700;
+  padding: .1rem .38rem; line-height: 1.4;
+}
+.missions-badge.done { background: var(--green, #34d399); }
+
+/* ── Daily Missions dropdown panel ── */
+.missions-panel {
+  position: fixed;
+  top: 56px; /* below topbar */
+  right: 1.5rem;
+  width: 320px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgba(0,0,0,.45);
+  z-index: 200;
+  padding: .85rem 1rem 1rem;
+  animation: fadeInDown .18s ease;
+}
+@keyframes fadeInDown {
+  from { opacity:0; transform:translateY(-8px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.missions-panel-header {
+  display: flex; align-items: center; gap: .5rem;
+  margin-bottom: .65rem;
+}
+.missions-panel-title {
+  font-weight: 700; font-size: .88rem; color: var(--text1); flex: 1;
+}
+.missions-panel-close {
+  background: none; border: none; color: var(--text3);
+  font-size: .85rem; cursor: pointer; padding: .15rem .3rem;
+  border-radius: 4px; transition: var(--transition);
+}
+.missions-panel-close:hover { background: var(--bg3); color: var(--text1); }
+.missions-panel-backdrop {
+  position: fixed; inset: 0; z-index: 199;
+}
+
+@media (max-width: 640px) {
+  .topbar-action-label { display: none; }
+  .topbar-action-btn { padding: .38rem .5rem; }
+  .missions-panel { right: .5rem; left: .5rem; width: auto; top: 52px; }
+}
 
 /* ===== PAGES ===== */
 .page { display: none; padding: 2.25rem 2rem; max-width: 940px; margin: 0 auto; width: 100%; }
