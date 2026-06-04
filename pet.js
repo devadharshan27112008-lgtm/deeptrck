@@ -97,10 +97,6 @@ const SPARKLE_POS = [
   {top:'38%',left:'15%',delay:'1.9s'},
 ];
 
-// Expose getPetSVG and PET_UNLOCK_LEVELS for unlock modal
-window._getPetSVG = getPetSVG;
-window.PET_UNLOCK_LEVELS = PET_UNLOCK_LEVELS;
-
 window.PET_SHOP = { food:[
   {id:'kibble',      name:'Kibble',      icon:'🥣',cost:10, hunger:10,hungerPct:'+10%'},
   {id:'berry_snack', name:'Berry Snack', icon:'🍓',cost:20, hunger:18,hungerPct:'+18%'},
@@ -705,38 +701,16 @@ function buildHatchPanel(containerId) {
       </div>
 
       <input type="text" id="pet-name-input-${containerId}" class="input"
-        placeholder="Name your buddy…"
-        style="width:100%;text-align:center;margin-bottom:.55rem;box-sizing:border-box;font-weight:600">
-      <div style="font-size:.62rem;color:var(--text3);margin-top:-.35rem;margin-bottom:.55rem">
-        Leave blank to use this name, or type your own
-      </div>
+        placeholder="Name your buddy…" style="width:100%;text-align:center;margin-bottom:.55rem;box-sizing:border-box">
       <button class="btn-primary" style="width:100%" id="hatch-btn-${containerId}">🥚 Hatch!</button>
     </div>`;
 
-  // Attach hatch button + default name logic after DOM insertion
+  // Attach hatch button after DOM insertion
   setTimeout(() => {
-    // Pre-fill default name for the initially selected archetype
-    const nameInput = document.getElementById('pet-name-input-' + containerId);
-    const initialChecked = document.querySelector(\`input[name="pet-archetype-\${containerId}"]:checked\`);
-    const initialArch = initialChecked ? initialChecked.value : 'cat';
-    if (nameInput && window.getDefaultPetName) {
-      nameInput.value = window.getDefaultPetName(initialArch);
-    }
-
-    // Update default name when user picks a different pet
-    document.querySelectorAll(\`input[name="pet-archetype-\${containerId}"]\`).forEach(radio => {
-      radio.addEventListener('change', function() {
-        const ni = document.getElementById('pet-name-input-' + containerId);
-        if (ni && window.getDefaultPetName) {
-          ni.value = window.getDefaultPetName(this.value);
-        }
-      });
-    });
-
     const btn = document.getElementById('hatch-btn-' + containerId);
     if (btn) {
       btn.onclick = function() {
-        const checked = document.querySelector(\`input[name="pet-archetype-\${containerId}"]:checked\`);
+        const checked = document.querySelector(`input[name="pet-archetype-${containerId}"]:checked`);
         const archetype = checked ? checked.value : 'cat';
         const nameEl = document.getElementById('pet-name-input-' + containerId);
         const name = nameEl ? nameEl.value : '';
@@ -869,27 +843,31 @@ window.installEnhancedFeedPet = function() {
   };
 };
 
-if(typeof window.getPetState==='function'){
-  window.installEnhancedFeedPet?.();
-  setTimeout(()=>{
-    window.renderEnhancedPetCard?.('pet-card-content');
-    window.renderEnhancedPetCard?.('pet-page-content');
-  },300);
-}
+// ─── Init — app.js loads before pet.js (both type="module"), so globals are ready ─
+(function initPetSystem() {
+  if (typeof window.getPetState !== 'function') {
+    // Fallback retry in case of unexpected load order
+    let attempts = 0;
+    const retry = setInterval(() => {
+      attempts++;
+      if (typeof window.getPetState === 'function') {
+        clearInterval(retry);
+        _bootPetSystem();
+      }
+      if (attempts > 60) clearInterval(retry);
+    }, 100);
+    return;
+  }
+  _bootPetSystem();
+})();
 
-// ─── DOMContentLoaded init — wait for app.js to expose its globals ────────────
-document.addEventListener('DOMContentLoaded', function() {
-  // Retry until app.js has finished exposing window globals
-  let attempts = 0;
-  const tryInit = setInterval(() => {
-    attempts++;
-    if (typeof window.getPetState === 'function' && typeof window.getXpState === 'function') {
-      clearInterval(tryInit);
-      window.installEnhancedFeedPet?.();
-      setTimeout(() => {
-        window.renderEnhancedPetCard?.('pet-card-content');
-      }, 100);
-    }
-    if (attempts > 40) clearInterval(tryInit); // stop after 4s
-  }, 100);
-});
+function _bootPetSystem() {
+  window.installEnhancedFeedPet?.();
+  // Render dashboard pet card
+  setTimeout(() => {
+    window.renderEnhancedPetCard?.('pet-card-content');
+  }, 50);
+  // Signal to app.js that pet system is ready
+  window._petSystemReady = true;
+  window.dispatchEvent(new CustomEvent('petSystemReady'));
+}

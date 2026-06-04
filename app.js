@@ -587,6 +587,8 @@ function renderPage(name) {
   if (name === 'petworld') {
     setTimeout(() => {
       renderPetWorld();
+      // Give renderPetWorld time to write pet-page-content into DOM, then render SVG
+      setTimeout(() => _renderPetPageContent(), 80);
     }, 100);
   }
   if (name === 'achievements') {
@@ -2701,12 +2703,6 @@ function showLevelUpPopup(info) {
     popup.style.opacity = '0';
     setTimeout(() => popup.remove(), 500);
   }, 3000);
-
-  // Check if a new pet unlocks at this level
-  const unlockedPetArchetype = PET_UNLOCK_AT_LEVELS[info.level];
-  if (unlockedPetArchetype) {
-    setTimeout(() => showPetUnlockModal(unlockedPetArchetype), 3500);
-  }
 }
 
 function updateXpBar() {
@@ -2977,27 +2973,11 @@ function buyWardrobeItem(itemId) {
   renderPetCard();
 }
 
-// Default names per pet archetype
-const PET_DEFAULT_NAMES = {
-  cat:   ['Mochi','Cleo','Luna','Pixel','Nori','Sable','Mimi','Pip'],
-  dog:   ['Biscuit','Theo','Buddy','Scout','Rusty','Maple','Copper','Duke'],
-  fox:   ['Ember','Fern','Ash','Wren','Blaze','Cinder','Sage','Flick'],
-  bear:  ['Cosmo','Atlas','Bruno','Miso','Teddy','Polar','Stormy','Birch'],
-  tiger: ['Nova','Zara','Blaze','Titan','Jinx','Rex','Storm','Kira'],
-  kitten:['Mochi','Cleo','Luna','Pixel','Nori','Sable','Mimi','Pip'],
-};
-
-function getDefaultPetName(archetype) {
-  const pool = PET_DEFAULT_NAMES[archetype] || PET_DEFAULT_NAMES.cat;
-  return pool[Math.floor(Math.random() * pool.length)];
-}
-window.getDefaultPetName = getDefaultPetName;
-
 function hatchPet(archetype, name) {
-  const finalName = (name || '').trim() || getDefaultPetName(archetype);
+  if (!name.trim()) { showToast('Give your pet a name! 🐾', 'info'); return; }
   const pet = {
     archetype,
-    name: finalName,
+    name: name.trim(),
     hunger: 100,
     lastFed: Date.now(),
     equippedItems: [],
@@ -3006,77 +2986,9 @@ function hatchPet(archetype, name) {
   savePetState(pet);
   const panel = document.getElementById('pet-hatch-panel');
   if (panel) panel.style.display = 'none';
-  const unlockModal = document.getElementById('pet-unlock-modal');
-  if (unlockModal) unlockModal.remove();
   renderPetCard();
-  if (typeof window.renderPetWorld === 'function') setTimeout(() => window.renderPetWorld(), 100);
-  showToast('🎉 ' + finalName + ' has hatched! Say hello to your new study buddy!', 'success', 4000);
+  showToast('🎉 ' + pet.name + ' has hatched! Say hello to your new study buddy!', 'success', 4000);
 }
-
-// Levels at which a new pet archetype unlocks
-const PET_UNLOCK_AT_LEVELS = { 6: 'dog', 11: 'fox', 16: 'bear', 21: 'tiger' };
-
-function showPetUnlockModal(archetype) {
-  const existing = document.getElementById('pet-unlock-modal');
-  if (existing) existing.remove();
-
-  const info = (window.PET_UNLOCK_LEVELS || {})[archetype] || { name: archetype, color: '#f4a261', accent: '#e76f51', personality: '' };
-  const defaultName = getDefaultPetName(archetype);
-
-  const modal = document.createElement('div');
-  modal.id = 'pet-unlock-modal';
-  Object.assign(modal.style, {
-    position: 'fixed', inset: '0', background: 'rgba(0,0,0,.75)',
-    backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center',
-    justifyContent: 'center', zIndex: '9998', padding: '1rem'
-  });
-
-  modal.innerHTML = `
-    <div style="background:var(--card);border:1.5px solid ${info.color}44;border-radius:20px;
-      padding:2rem 1.5rem;max-width:340px;width:100%;text-align:center;
-      box-shadow:0 0 60px ${info.color}33;animation:petBounceIn .5s cubic-bezier(.34,1.56,.64,1) both">
-      <div style="font-size:2.8rem;margin-bottom:.4rem;animation:petFloat 2s ease-in-out infinite">🎉</div>
-      <div style="font-weight:800;font-size:1.1rem;color:${info.color};margin-bottom:.15rem">New Pet Unlocked!</div>
-      <div style="font-weight:700;font-size:.95rem;color:var(--text1);margin-bottom:.1rem">${info.name}</div>
-      <div style="font-size:.72rem;color:var(--text3);margin-bottom:.8rem;font-style:italic">${info.personality}</div>
-      <div id="pet-unlock-preview" style="width:100px;height:100px;margin:0 auto .85rem;border-radius:12px;
-        background:${info.color}18;display:flex;align-items:center;justify-content:center;overflow:hidden"></div>
-      <div style="font-size:.78rem;color:var(--text2);margin-bottom:.65rem">
-        Give your new companion a name — or keep the suggested one!
-      </div>
-      <input id="pet-unlock-name-input" class="input"
-        value="${defaultName}"
-        placeholder="Name your ${info.name}…"
-        style="width:100%;text-align:center;margin-bottom:.65rem;box-sizing:border-box;
-          border-color:${info.color}66;font-weight:600"
-        onfocus="this.select()">
-      <div style="display:flex;gap:.5rem">
-        <button class="btn-outline" style="flex:1;font-size:.8rem"
-          onclick="document.getElementById('pet-unlock-modal').remove()">Later</button>
-        <button class="btn-primary" style="flex:2;font-size:.85rem;background:${info.color};border-color:${info.color}"
-          onclick="window._hatchFromUnlockModal('${archetype}')">🥚 Hatch ${info.name}!</button>
-      </div>
-      <div style="font-size:.65rem;color:var(--text3);margin-top:.5rem">You can also hatch later from Pet World</div>
-    </div>`;
-
-  document.body.appendChild(modal);
-
-  setTimeout(() => {
-    const preview = document.getElementById('pet-unlock-preview');
-    if (preview && typeof window._getPetSVG === 'function') {
-      preview.innerHTML = '<div style="transform:scale(0.65);transform-origin:center;width:140px;height:160px;margin:-28px -20px">' + window._getPetSVG(archetype,'Happy',info.color,info.accent) + '</div>';
-    }
-  }, 150);
-
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-}
-
-window._hatchFromUnlockModal = function(archetype) {
-  const nameEl = document.getElementById('pet-unlock-name-input');
-  const name = nameEl ? nameEl.value.trim() : '';
-  hatchPet(archetype, name);
-};
-window.showPetUnlockModal = showPetUnlockModal;
 
 function getPetMood(hunger) {
   if (hunger >= 80) return { mood: 'Happy', emoji: '😄', color: '#34d399' };
@@ -3164,7 +3076,6 @@ function renderPetCard() {
 function hatchPetFromUI() {
   const archetype = document.querySelector('input[name="pet-archetype"]:checked')?.value || 'kitten';
   const name = document.getElementById('pet-name-input')?.value || '';
-  // name can be blank — hatchPet will use a default name
   hatchPet(archetype, name);
 }
 window.hatchPetFromUI = hatchPetFromUI;
@@ -3180,15 +3091,48 @@ window.getXpState = getXpState;
 window.getLevelInfo = getLevelInfo;
 window.hatchPet = hatchPet;
 window.showToast = showToast;
-// Install enhanced feed + re-render now that internals are available
-if (typeof window.installEnhancedFeedPet === 'function') {
-  window.installEnhancedFeedPet();
-} else {
-  window.feedPet = feedPet; // fallback if pet.js not loaded
+window.renderPetWorld = renderPetWorld;
+
+// ─── Helper: render pet SVG into pet-page-content ─────────────────────────
+function _renderPetPageContent() {
+  // Poll until the container exists in the DOM and renderer is ready
+  let tries = 0;
+  const poll = setInterval(() => {
+    tries++;
+    const pc = document.getElementById('pet-page-content');
+    if (pc && typeof window.renderEnhancedPetCard === 'function') {
+      clearInterval(poll);
+      window.renderEnhancedPetCard('pet-page-content');
+    }
+    if (tries > 30) clearInterval(poll);
+  }, 50);
 }
-// Render pet card on load — pet.js SVG renderer takes priority
-if (typeof window.renderEnhancedPetCard === 'function') {
-  setTimeout(() => window.renderEnhancedPetCard('pet-card-content'), 400);
+window._renderPetPageContent = _renderPetPageContent;
+
+// Install enhanced feed + re-render when pet system signals ready
+function _onPetSystemReady() {
+  if (typeof window.installEnhancedFeedPet === 'function') {
+    window.installEnhancedFeedPet();
+  }
+  // Render dashboard card
+  setTimeout(() => {
+    if (typeof window.renderEnhancedPetCard === 'function') {
+      window.renderEnhancedPetCard('pet-card-content');
+    }
+  }, 50);
+}
+
+if (window._petSystemReady) {
+  _onPetSystemReady();
+} else {
+  window.addEventListener('petSystemReady', _onPetSystemReady, { once: true });
+  // Fallback: also try after a delay in case event already fired
+  setTimeout(() => {
+    if (typeof window.installEnhancedFeedPet === 'function') window.installEnhancedFeedPet();
+    if (typeof window.renderEnhancedPetCard === 'function') {
+      window.renderEnhancedPetCard('pet-card-content');
+    }
+  }, 800);
 }
 
 // Pet hunger check — apply debuff if fatigued
@@ -3595,12 +3539,9 @@ function renderPetWorld() {
   const actionsEl = document.getElementById('petworld-actions');
 
   if (!pet) {
-    // Use SVG-based hatch panel from pet.js if available
     if (mainContent) {
       mainContent.innerHTML = '<div id="pet-page-content" style="padding:.5rem 0"></div>';
-      if (typeof window.renderEnhancedPetCard === 'function') {
-        setTimeout(() => window.renderEnhancedPetCard('pet-page-content'), 0);
-      }
+      _renderPetPageContent();
     }
     if (metersEl) metersEl.style.display = 'none';
     if (actionsEl) actionsEl.style.display = 'none';
@@ -3611,15 +3552,10 @@ function renderPetWorld() {
     const petNameEl = document.getElementById('petworld-pet-name');
     if (petNameEl) petNameEl.textContent = petNameLabel;
 
-    // Use SVG renderer from pet.js
     if (mainContent) {
-      // Only rebuild if container doesn't already have the SVG pet content
-      if (!document.getElementById('pet-page-content')) {
-        mainContent.innerHTML = '<div id="pet-page-content" style="padding:.5rem 0"></div>';
-      }
-      if (typeof window.renderEnhancedPetCard === 'function') {
-        setTimeout(() => window.renderEnhancedPetCard('pet-page-content'), 0);
-      }
+      // Always rebuild so SVG is never stale
+      mainContent.innerHTML = '<div id="pet-page-content" style="padding:.5rem 0"></div>';
+      _renderPetPageContent();
     }
 
     // Update meters
@@ -3719,7 +3655,6 @@ function closeFeedModal() {
 function hatchPetFromWorld() {
   const archetype = document.querySelector('input[name="pet-archetype-world"]:checked')?.value || 'kitten';
   const name = document.getElementById('pet-name-world-input')?.value || '';
-  // name can be blank — hatchPet will use a default name
   hatchPet(archetype, name);
   setTimeout(() => renderPetWorld(), 100);
 }
