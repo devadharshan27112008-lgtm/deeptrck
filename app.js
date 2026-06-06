@@ -49,6 +49,7 @@ const App = {
   focusInterval: null,
   focusSeconds: 0,
   focusTotalSeconds: 0,
+  focusAccumulatedWorkSecs: 0,
   focusRunning: false,
   focusIsBreak: false,
   focusSession: 1,
@@ -569,7 +570,7 @@ function showPage(name) {
 function renderPage(name) {
   if (name === 'dashboard') renderDashboard();
   if (name === 'daily') renderDailyLog();
-  if (name === 'tasks') renderTasks();
+  if (name === 'tasks') { renderTasks(); setTimeout(renderCourseDailyGoals, 100); }
   if (name === 'courses') renderCourses();
   if (name === 'focus') { restoreFocusState(); renderFocusLog(); renderFocusTaskList(); renderFocusDailyProgress(); _syncAutoBreaks(); }
   if (name === 'typing') renderTyping();
@@ -723,24 +724,15 @@ async function renderDashboard() {
   renderWeeklyChart(logs);
   renderStreakGrid(logs);
 
-  // Gamification
+  // Gamification — missions system is the single source of truth for all daily rewards
   updateXpBar();
   fsGet("focus_logs").then(fl => {
     renderMissions(logs, tasks, fl, App.prefs.goalMins || 240);
     checkAndAwardMissions(logs, tasks, fl, App.prefs.goalMins || 240);
   });
-  const state = getXpState();
-  const todayKey = "goal_" + today;
-  if (pct >= 1 && !(state.todayBonuses || {})[todayKey]) {
-    state.todayBonuses = state.todayBonuses || {};
-    state.todayBonuses[todayKey] = true;
-    saveXpState(state);
-    addXp(XP_DAILY_GOAL, "Daily goal hit!", null);
-    addCoins(20); // daily goal = 20 coins
-    showToast('🎯 Daily goal hit! +' + XP_DAILY_GOAL + ' XP  +20 🪙', 'success', 3500);
-  }
   checkAchievementsAfterAction();
   setTimeout(renderDashboardAchievements, 200);
+  setTimeout(renderCourseDailyGoals, 0);
 
 }
 function calcStreak(logs) {
@@ -1084,14 +1076,21 @@ async function toggleTask(id, currentDone) {
     if (typeof window.petOnTaskComplete === 'function') window.petOnTaskComplete();
     checkAchievementsAfterAction();
   } else {
-    // Deduct previously awarded XP
+    // Deduct previously awarded XP and claw back the sparks that came with it
     const awarded = xpState.taskXp[id] || 0;
     if (awarded > 0) {
       delete xpState.taskXp[id];
       xpState.total = Math.max(0, (xpState.total || 0) - awarded);
       saveXpState(xpState);
       updateXpBar();
-      showToast('Task unmarked — ' + awarded + ' XP removed', 'info');
+      const sparksToRemove = Math.floor(awarded / 2);
+      if (sparksToRemove > 0) {
+        const currState = getCurrencyState();
+        currState.sparks = Math.max(0, (currState.sparks || 0) - sparksToRemove);
+        saveCurrencyState(currState);
+        updateSparksDisplay();
+      }
+      showToast('Task unmarked — ' + awarded + ' XP & ' + Math.floor(awarded / 2) + ' ⚡ removed', 'info');
     }
   }
   fsUpdate('tasks', id, { done: nowDone }).catch(e => {
@@ -1106,7 +1105,7 @@ async function deleteTask(id) {
   const tasks = App.cache['tasks'] || await fsGet('tasks');
   const t = tasks.find(t => t._id === id);
   if (!t) return;
-  // If task was done, deduct its XP
+  // If task was done, deduct its XP and claw back the sparks
   if (t.done) {
     const xpState = getXpState();
     xpState.taskXp = xpState.taskXp || {};
@@ -1115,7 +1114,14 @@ async function deleteTask(id) {
     xpState.total = Math.max(0, (xpState.total || 0) - awarded);
     saveXpState(xpState);
     updateXpBar();
-    showToast('Task deleted — ' + awarded + ' XP removed', 'info');
+    const sparksToRemove = Math.floor(awarded / 2);
+    if (sparksToRemove > 0) {
+      const currState = getCurrencyState();
+      currState.sparks = Math.max(0, (currState.sparks || 0) - sparksToRemove);
+      saveCurrencyState(currState);
+      updateSparksDisplay();
+    }
+    showToast('Task deleted — ' + awarded + ' XP & ' + sparksToRemove + ' ⚡ removed', 'info');
   }
   // Optimistic: remove from cache and re-render instantly
   App.cache['tasks'] = (App.cache['tasks'] || []).filter(i => i._id !== id);
@@ -1210,12 +1216,14 @@ async function renderTasks() {
 
   const progressRow = document.getElementById('task-progress-row');
   if (progressRow) progressRow.style.display = allTasks.length ? '' : 'none';
-  const nonRepeatTotal = allTasks.filter(t => !t.repeat).length;
-  const pct = nonRepeatTotal ? Math.round((done.length / nonRepeatTotal) * 100) : 0;
+  const nonRepeatAll   = allTasks.filter(t => !t.repeat);
+  const nonRepeatTotal = nonRepeatAll.length;
+  const nonRepeatDone  = nonRepeatAll.filter(t => t.done).length;
+  const pct = nonRepeatTotal ? Math.min(100, Math.round((nonRepeatDone / nonRepeatTotal) * 100)) : 0;
   const bar = document.getElementById('completion-bar');
   const lbl = document.getElementById('completion-label');
   if (bar) bar.style.width = pct + '%';
-  if (lbl) lbl.textContent = nonRepeatTotal ? `${done.length} of ${nonRepeatTotal} done (${pct}%)` : '';
+  if (lbl) lbl.textContent = nonRepeatTotal ? `${nonRepeatDone} of ${nonRepeatTotal} done (${pct}%)` : '';
 }
 
 function toggleAddTaskForm() {
@@ -1324,11 +1332,14 @@ function taskItemHTML(t, today, now) {
 async function addCourse() {
   const name = document.getElementById('course-name').value.trim();
   const goalHrsDaily = parseFloat(document.getElementById('course-goal').value) || 1;
+  const endDate = document.getElementById('course-enddate').value || '';
   if (!name) return;
-  await fsAdd('courses', { name, goalHrsDaily, totalMin: 0 });
+  await fsAdd('courses', { name, goalHrsDaily, endDate, totalMin: 0 });
   document.getElementById('course-name').value = '';
   document.getElementById('course-goal').value = '';
+  document.getElementById('course-enddate').value = '';
   renderCourses();
+  renderCourseDailyGoals();
 }
 
 async function logCourseTime(id, mins) {
@@ -1336,20 +1347,31 @@ async function logCourseTime(id, mins) {
   const c = courses.find(c => c._id === id);
   if (!c) return;
   const newTotal = (c.totalMin || 0) + mins;
-  // Update course total optimistically
   if (App.cache['courses']) {
     const ci = App.cache['courses'].findIndex(x => x._id === id);
     if (ci !== -1) App.cache['courses'][ci].totalMin = newTotal;
   }
-  // Add tagged daily log entry
+  // Skip XP if this course was already logged today via focus session
+  const cachedLogs = App.cache['daily_logs'] || await fsGet('daily_logs');
+  const alreadyFocusLogged = cachedLogs.some(l => l.date === todayStr() && l.courseId === id && l.focusLogged);
+
   const tempId = '_tmp_' + Date.now();
   const logEntry = { date: todayStr(), activity: 'Studied ' + c.name, category: 'Study', duration: mins, notes: '', courseId: id };
   if (!App.cache['daily_logs']) App.cache['daily_logs'] = [];
   App.cache['daily_logs'].unshift({ _id: tempId, ...logEntry });
+
+  if (alreadyFocusLogged) {
+    showToast('📘 +' + mins + 'm logged for ' + c.name + ' (XP already earned via Focus ✓)', 'info');
+  } else {
+    const xpEarned = Math.max(5, mins * XP_FOCUS_MIN);
+    addXp(xpEarned, 'Course study: ' + c.name, null);
+    showToast('📘 +' + mins + 'm logged for ' + c.name + '! +' + xpEarned + ' XP', 'success');
+  }
+
   renderCourses();
+  renderCourseDailyGoals();
   if (App.currentPage === 'daily') renderDailyLog();
   if (App.currentPage === 'dashboard') renderDashboard();
-  // Persist in parallel
   Promise.all([
     updateDoc(userDoc('courses', id), { totalMin: newTotal }),
     addDoc(userCol('daily_logs'), { ...logEntry, createdAt: serverTimestamp() }).then(ref => {
@@ -1359,33 +1381,115 @@ async function logCourseTime(id, mins) {
   ]).catch(e => { console.error('logCourseTime error', e); clearCache('courses','daily_logs'); renderCourses(); });
 }
 
+// Renders course daily goal rows (checkable + progress bar) for Tasks page and Dashboard
+async function renderCourseDailyGoals() {
+  const courses = await fsGet('courses');
+  const logs = await fsGet('daily_logs');
+  const today = todayStr();
+
+  function buildGoalHTML(c, compact) {
+    const goalMin = (c.goalHrsDaily || 1) * 60;
+    const todayMin = logs.filter(l => l.courseId === c._id && l.date === today)
+                         .reduce((s, l) => s + (l.duration || 0), 0);
+    const pct = Math.min(100, Math.round((todayMin / goalMin) * 100));
+    const done = pct >= 100;
+    const color = done ? 'var(--green)' : pct >= 50 ? 'var(--accent)' : 'var(--amber)';
+    return `<div style="display:flex;align-items:center;gap:.6rem;padding:.55rem .1rem;${compact?'':'border-bottom:1px solid var(--border)'}">
+      <input type="checkbox" class="dash-task-check" ${done ? 'checked' : ''} disabled
+        style="opacity:${done?'1':'.35'};cursor:default">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-size:.85rem;font-weight:600;color:${done?'var(--text3)':'var(--text1)'};
+            ${done?'text-decoration:line-through;':''}">${c.name}</span>
+          <span style="font-size:.72rem;font-weight:700;color:${color};white-space:nowrap;margin-left:.5rem">
+            ${(todayMin/60).toFixed(1)}h / ${c.goalHrsDaily||1}h${done?' ✓':''}</span>
+        </div>
+        <div style="height:5px;border-radius:999px;background:var(--bg3);overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:999px;transition:width .6s ease"></div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Tasks page
+  const tasksSec = document.getElementById('course-daily-goals-section');
+  const tasksList = document.getElementById('course-daily-goals-list');
+  if (tasksSec && tasksList) {
+    if (courses.length) {
+      tasksSec.style.display = '';
+      tasksList.innerHTML = courses.map(c => buildGoalHTML(c, false)).join('');
+    } else {
+      tasksSec.style.display = 'none';
+    }
+  }
+
+  // Dashboard
+  const dashCard = document.getElementById('dash-course-goals-card');
+  const dashList = document.getElementById('dash-course-goals-list');
+  if (dashCard && dashList) {
+    if (courses.length) {
+      dashCard.style.display = '';
+      dashList.innerHTML = courses.map(c => buildGoalHTML(c, true)).join('');
+    } else {
+      dashCard.style.display = 'none';
+    }
+  }
+}
+window.renderCourseDailyGoals = renderCourseDailyGoals;
+
 async function deleteCourse(id) {
   await fsDelete('courses', id);
   renderCourses();
+  renderCourseDailyGoals();
 }
 
 async function renderCourses() {
   const courses = await fsGet('courses');
+  const today = todayStr();
+  const logs = await fsGet('daily_logs');
   const el = document.getElementById('courses-list');
   el.innerHTML = courses.length ? courses.map(c => {
-    const goalMin = (c.goalHrsDaily || c.goalHrs || 1) * 60;
-    const pct = Math.min(100, Math.round((c.totalMin / goalMin) * 100));
-    const h = (c.totalMin / 60).toFixed(1);
+    const goalMin = (c.goalHrsDaily || 1) * 60;
+    const todayMin = logs.filter(l => l.courseId === c._id && l.date === today)
+                         .reduce((s, l) => s + (l.duration || 0), 0);
+    const todayPct = Math.min(100, Math.round((todayMin / goalMin) * 100));
+    const totalH = (c.totalMin / 60).toFixed(1);
+    const daysLeft = c.endDate ? Math.ceil((new Date(c.endDate) - new Date()) / 86400000) : null;
+    const endLabel = c.endDate ? `<span style="font-size:.72rem;color:${daysLeft <= 3 ? 'var(--red)' : 'var(--text3)'}">
+      📅 ${daysLeft > 0 ? daysLeft + 'd left' : 'Ended'}</span>` : '';
     return `<div class="course-card">
       <div class="course-header">
         <div>
           <div class="course-name-text">${c.name}</div>
-          <div class="course-meta">${h}h logged · Goal: ${c.goalHrsDaily || c.goalHrs || 1}h/day · ${pct}%</div>
+          <div class="course-meta" style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+            <span>${totalH}h total · Goal: ${c.goalHrsDaily || 1}h/day</span>
+            ${endLabel}
+          </div>
         </div>
         <button class="course-delete" onclick="deleteCourse('${c._id}')">✕</button>
       </div>
-      <div class="course-prog-bar-wrap"><div class="course-prog-bar" style="width:${pct}%"></div></div>
-      <div class="course-log-btns">
-        <span style="font-size:.78rem;color:var(--text3);margin-right:.3rem">Log time:</span>
+      <!-- Daily goal progress -->
+      <div style="margin:.4rem 0 .55rem">
+        <div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--text3);margin-bottom:3px">
+          <span>Today: ${(todayMin/60).toFixed(1)}h / ${c.goalHrsDaily || 1}h goal</span>
+          <span style="color:${todayPct>=100?'var(--green)':'var(--text2)'};font-weight:600">${todayPct}%${todayPct>=100?' ✓':''}</span>
+        </div>
+        <div class="course-prog-bar-wrap">
+          <div class="course-prog-bar" style="width:${todayPct}%;background:${todayPct>=100?'var(--green)':'var(--accent)'}"></div>
+        </div>
+      </div>
+      <div class="course-log-btns" style="align-items:center;flex-wrap:wrap;gap:.3rem">
+        <span style="font-size:.78rem;color:var(--text3)">Log time:</span>
         <button class="log-btn" onclick="logCourseTime('${c._id}',30)">+30m</button>
         <button class="log-btn" onclick="logCourseTime('${c._id}',60)">+1h</button>
         <button class="log-btn" onclick="logCourseTime('${c._id}',90)">+1.5h</button>
         <button class="log-btn" onclick="logCourseTime('${c._id}',120)">+2h</button>
+        <div style="display:flex;align-items:center;gap:.3rem;margin-left:.2rem">
+          <input type="number" id="custom-mins-${c._id}" class="input" placeholder="mins"
+            style="width:64px;padding:.25rem .4rem;font-size:.78rem" min="1" max="600"
+            onkeydown="if(event.key==='Enter'){const v=parseInt(this.value);if(v>0)logCourseTime('${c._id}',v);this.value='';}">
+          <button class="log-btn" onclick="const v=parseInt(document.getElementById('custom-mins-${c._id}').value);if(v>0){logCourseTime('${c._id}',v);document.getElementById('custom-mins-${c._id}').value='';}">+custom</button>
+        </div>
       </div>
     </div>`;
   }).join('') : '<div class="empty-state">No courses added yet.</div>';
@@ -1557,34 +1661,81 @@ function setPreset(work, brk, breakCount, name) {
   focusReset();
 }
 
-// Task picker for focus page
-let _focusSelectedTaskId = null;
+// Task + Course picker for focus page
+let _focusSelectedTaskId   = null;
+let _focusSelectedCourseId = null;
 
 async function renderFocusTaskList() {
-  const tasks = await fsGet('tasks');
+  const [tasks, courses] = await Promise.all([fsGet('tasks'), fsGet('courses')]);
   const pending = tasks.filter(t => !t.done);
   const el = document.getElementById('focus-task-list');
   if (!el) return;
-  if (!pending.length) {
-    el.innerHTML = '<div class="empty-state" style="font-size:.82rem">No pending tasks. Add tasks in the Tasks page.</div>';
-    return;
+
+  let html = '';
+
+  // ── Courses section ────────────────────────────────────────────
+  if (courses.length) {
+    html += `<div style="font-size:.7rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+      color:var(--text3);margin-bottom:.35rem;margin-top:.1rem">📘 Courses</div>`;
+    html += courses.map(c => {
+      const sel = _focusSelectedCourseId === c._id;
+      const goalMin = (c.goalHrsDaily || 1) * 60;
+      const todayMin = (App.cache['daily_logs'] || [])
+        .filter(l => l.courseId === c._id && l.date === todayStr())
+        .reduce((s, l) => s + (l.duration || 0), 0);
+      const pct = Math.min(100, Math.round((todayMin / goalMin) * 100));
+      return `<div class="focus-task-option ${sel ? 'selected' : ''}"
+        onclick="selectFocusCourse('${c._id}', ${JSON.stringify(c.name).replace(/'/g,"\\'")})"
+        style="flex-direction:column;align-items:flex-start;gap:3px">
+        <div style="display:flex;align-items:center;gap:7px;width:100%">
+          <span class="focus-task-radio ${sel ? 'checked' : ''}"></span>
+          <span class="focus-task-text" style="flex:1">${c.name}</span>
+          <span style="font-size:.68rem;color:var(--text3)">${todayMin}m / ${goalMin}m</span>
+        </div>
+        <div style="width:100%;height:3px;background:var(--border);border-radius:2px;margin-left:18px">
+          <div style="height:100%;width:${pct}%;background:${pct>=100?'var(--green)':'var(--accent)'};border-radius:2px;transition:width .3s"></div>
+        </div>
+      </div>`;
+    }).join('');
   }
-  el.innerHTML = pending.slice(0, 10).map(t => {
-    const sel = _focusSelectedTaskId === t._id;
-    return `<div class="focus-task-option ${sel ? 'selected' : ''}"
-      onclick="selectFocusTask('${t._id}', this.dataset.text)" data-text="${t.text.replace(/"/g,'&quot;')}">
-      <span class="focus-task-radio ${sel ? 'checked' : ''}"></span>
-      <span class="focus-task-text">${t.text}</span>
-    </div>`;
-  }).join('');
+
+  // ── Tasks section ──────────────────────────────────────────────
+  if (pending.length) {
+    html += `<div style="font-size:.7rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+      color:var(--text3);margin-bottom:.35rem;margin-top:.65rem">☑️ Tasks</div>`;
+    html += pending.slice(0, 8).map(t => {
+      const sel = _focusSelectedTaskId === t._id;
+      return `<div class="focus-task-option ${sel ? 'selected' : ''}"
+        onclick="selectFocusTask('${t._id}', this.dataset.text)" data-text="${t.text.replace(/"/g,'&quot;')}">
+        <span class="focus-task-radio ${sel ? 'checked' : ''}"></span>
+        <span class="focus-task-text">${t.text}</span>
+      </div>`;
+    }).join('');
+  }
+
+  if (!courses.length && !pending.length) {
+    html = '<div class="empty-state" style="font-size:.82rem">No courses or tasks yet. Add some first!</div>';
+  }
+
+  el.innerHTML = html;
 }
 
 function selectFocusTask(id, text) {
-  _focusSelectedTaskId = id;
+  _focusSelectedTaskId   = id;
+  _focusSelectedCourseId = null;   // clear course selection
   const input = document.getElementById('focus-task-input');
   if (input) input.value = text;
   renderFocusTaskList();
 }
+
+function selectFocusCourse(id, name) {
+  _focusSelectedCourseId = id;
+  _focusSelectedTaskId   = null;   // clear task selection
+  const input = document.getElementById('focus-task-input');
+  if (input) input.value = name;
+  renderFocusTaskList();
+}
+window.selectFocusCourse = selectFocusCourse;
 
 async function renderFocusDailyProgress() {
   const logs = await fsGet('daily_logs');
@@ -1724,6 +1875,7 @@ function _autoRestoreFocusOnInit() {
   App.focusPhaseStartedAt = raw.phaseStartedAt;
   App.focusSegmentIndex = raw.segmentIndex || 0;
   App.focusSegments     = raw.segments || _buildSegments(raw.preset);
+  App.focusAccumulatedWorkSecs = raw.accumulatedWorkSecs || 0;
 
   _focusWorkMins = raw.preset.work;
 
@@ -1751,6 +1903,7 @@ function saveFocusStateLS() {
     session: App.focusSession || 1,
     segmentIndex: App.focusSegmentIndex || 0,
     segments: App.focusSegments || [],
+    accumulatedWorkSecs: App.focusAccumulatedWorkSecs || 0,
     preset: App.focusPreset,
     task: document.getElementById('focus-task-input')?.value || ''
   };
@@ -1774,6 +1927,7 @@ function restoreFocusState() {
   App.focusSession      = raw.session;
   App.focusSegmentIndex = raw.segmentIndex || 0;
   App.focusSegments     = raw.segments || _buildSegments(raw.preset);
+  App.focusAccumulatedWorkSecs = raw.accumulatedWorkSecs || 0;
 
   _focusWorkMins = raw.preset.work;
   const spinEl = document.getElementById('focus-spin-display');
@@ -1865,7 +2019,8 @@ function _onPhaseEnd() {
   const nextSegIdx  = segIdx + 1;
 
   if (!App.focusIsBreak) {
-    // Work segment just ended — log it
+    // Work segment just ended — accumulate total work time then log it
+    App.focusAccumulatedWorkSecs = (App.focusAccumulatedWorkSecs || 0) + (App.focusTotalSeconds || 0);
     saveFocusSession();
   }
 
@@ -1922,11 +2077,12 @@ function focusStart() {
   App.focusSegmentIndex = App.focusSegmentIndex || 0;
 
   if (App.focusSeconds === 0 || App.focusSeconds === undefined) {
-    // Fresh start — begin from first segment
+    // Fresh start — begin from first segment, reset accumulator
     App.focusSegmentIndex = 0;
     App.focusIsBreak      = (segments[0].type === 'break');
     App.focusSeconds      = segments[0].seconds;
     App.focusTotalSeconds = segments[0].seconds;
+    App.focusAccumulatedWorkSecs = 0;
   }
 
   // Adjust phaseStartedAt to account for any already-elapsed paused time
@@ -1952,17 +2108,52 @@ function focusPause() {
 }
 
 function focusReset() {
+  // Save partial work time if a work segment was actively running when cancelled
+  if (!App.focusIsBreak && App.focusRunning && App.focusPhaseStartedAt) {
+    const elapsed = Math.floor((Date.now() - App.focusPhaseStartedAt) / 1000);
+    const elapsedMins = Math.round(Math.max(0, elapsed) / 60);
+    if (elapsedMins >= 1) {
+      const task = document.getElementById('focus-task-input')?.value.trim() || 'Focus session';
+      const courseId = _focusSelectedCourseId || null;
+      const logEntry = {
+        date: todayStr(), activity: task, category: 'Study',
+        duration: elapsedMins, notes: '',
+        ...(courseId ? { courseId, focusLogged: true } : {})
+      };
+      fsAdd('focus_sessions', { date: todayStr(), mins: elapsedMins, task })
+        .then(() => { clearCache('focus_sessions'); renderFocusLog(); });
+      fsAdd('daily_logs', logEntry)
+        .then(() => clearCache('daily_logs'));
+      // Update course total too
+      if (courseId) {
+        const courses = App.cache['courses'] || [];
+        const c = courses.find(x => x._id === courseId);
+        if (c) {
+          const newTotal = (c.totalMin || 0) + elapsedMins;
+          if (App.cache['courses']) {
+            const ci = App.cache['courses'].findIndex(x => x._id === courseId);
+            if (ci !== -1) App.cache['courses'][ci].totalMin = newTotal;
+          }
+          updateDoc(userDoc('courses', courseId), { totalMin: newTotal }).catch(() => clearCache('courses'));
+          renderCourseDailyGoals();
+        }
+      }
+      if (typeof drainEnergy === 'function') drainEnergy(elapsedMins);
+    }
+  }
+
   clearInterval(App.focusInterval);
-  App.focusInterval     = null;
-  App.focusRunning      = false;
-  App.focusIsBreak      = false;
-  App.focusBreaksDone   = 0;
-  App.focusSession      = 1;
-  App.focusPhaseStartedAt = null;
-  App.focusSegmentIndex = 0;
-  App.focusSegments     = _buildSegments(App.focusPreset);
-  App.focusSeconds      = App.focusPreset.work * 60;
-  App.focusTotalSeconds = App.focusPreset.work * 60;
+  App.focusInterval            = null;
+  App.focusRunning             = false;
+  App.focusIsBreak             = false;
+  App.focusBreaksDone          = 0;
+  App.focusSession             = 1;
+  App.focusPhaseStartedAt      = null;
+  App.focusSegmentIndex        = 0;
+  App.focusAccumulatedWorkSecs = 0;
+  App.focusSegments            = _buildSegments(App.focusPreset);
+  App.focusSeconds             = App.focusPreset.work * 60;
+  App.focusTotalSeconds        = App.focusPreset.work * 60;
   clearFocusStateLS();
   syncFocusToSW();
   _updateFocusUI();
@@ -1996,16 +2187,39 @@ function syncFocusToSW() {
 
 async function saveFocusSession() {
   const task = document.getElementById('focus-task-input')?.value.trim() || 'Focus session';
-  // Calculate actual work minutes for this segment
   const segments = App.focusSegments || _buildSegments(App.focusPreset);
   const segIdx   = App.focusSegmentIndex || 0;
   const segSecs  = segments[segIdx]?.seconds || App.focusPreset.work * 60;
   const segMins  = Math.round(segSecs / 60);
+
+  // Use directly selected courseId (from picker) — no fuzzy name matching needed
+  const courseId = _focusSelectedCourseId || null;
+  const logEntry = {
+    date: todayStr(), activity: task, category: 'Study',
+    duration: segMins, notes: '',
+    ...(courseId ? { courseId, focusLogged: true } : {})
+  };
+
   await fsAdd('focus_sessions', { date: todayStr(), mins: segMins, task });
-  await fsAdd('daily_logs', { date: todayStr(), activity: task, category: 'Study', duration: segMins, notes: '' });
+  await fsAdd('daily_logs', logEntry);
+
+  // If a course is selected, also update its totalMin so the course progress bar advances
+  if (courseId) {
+    const courses = App.cache['courses'] || await fsGet('courses');
+    const c = courses.find(x => x._id === courseId);
+    if (c) {
+      const newTotal = (c.totalMin || 0) + segMins;
+      if (App.cache['courses']) {
+        const ci = App.cache['courses'].findIndex(x => x._id === courseId);
+        if (ci !== -1) App.cache['courses'][ci].totalMin = newTotal;
+      }
+      updateDoc(userDoc('courses', courseId), { totalMin: newTotal }).catch(() => clearCache('courses'));
+      renderCourseDailyGoals();
+    }
+  }
+
   clearCache('focus_sessions', 'daily_logs');
   renderFocusLog();
-  // Drain energy after focus session
   if (typeof drainEnergy === 'function') drainEnergy(segMins);
 }
 
@@ -2091,10 +2305,13 @@ function switchReportTab(tab) {
   App.currentReportTab = tab;
   document.getElementById('report-weekly').style.display = tab === 'weekly' ? '' : 'none';
   document.getElementById('report-monthly').style.display = tab === 'monthly' ? '' : 'none';
+  const aiEl = document.getElementById('report-ai');
+  if (aiEl) aiEl.style.display = tab === 'ai' ? '' : 'none';
   document.querySelectorAll('#page-reports .tab').forEach(t => t.classList.remove('active'));
   const tabs = document.querySelectorAll('#page-reports .tab');
   if (tab === 'weekly' && tabs[0]) tabs[0].classList.add('active');
   if (tab === 'monthly' && tabs[1]) tabs[1].classList.add('active');
+  if (tab === 'ai' && tabs[2]) tabs[2].classList.add('active');
   if (tab === 'weekly') generateWeeklyReport();
   if (tab === 'monthly') generateMonthlyReport();
 }
@@ -2121,10 +2338,27 @@ async function generateWeeklyReport() {
   const studyDays = new Set(weekLogs.map(l => l.date)).size;
   const weekTasks = tasks;
   const doneTasks = weekTasks.filter(t => t.done).length;
+  const overdueTasks = weekTasks.filter(t => !t.done && t.dueDate && t.dueDate < todayStr()).length;
   const weekWpm = wpm.filter(w => weekDays.includes(w.date));
   const weekFocus = focus.filter(f => weekDays.includes(f.date));
+  const totalFocusMin = weekFocus.reduce((s, f) => s + (f.duration || 0), 0);
   const catBreakdown = {};
   weekLogs.forEach(l => { catBreakdown[l.category] = (catBreakdown[l.category] || 0) + (l.duration || 0); });
+
+  // Per-day breakdown
+  const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const dayMins = weekDays.map(d => weekLogs.filter(l => l.date === d).reduce((s, l) => s + (l.duration || 0), 0));
+  const maxDayMin = Math.max(...dayMins, 1);
+  const bestDayIdx = dayMins.indexOf(Math.max(...dayMins));
+  const avgDailyMin = studyDays > 0 ? Math.round(totalMin / studyDays) : 0;
+
+  // WPM stats
+  const avgWpm = weekWpm.length ? Math.round(weekWpm.reduce((s, w) => s + w.wpm, 0) / weekWpm.length) : 0;
+  const bestWpm = weekWpm.length ? Math.max(...weekWpm.map(w => w.wpm)) : 0;
+
+  // Course time
+  const courseBreakdown = {};
+  weekLogs.forEach(l => { if (l.course) courseBreakdown[l.course] = (courseBreakdown[l.course] || 0) + (l.duration || 0); });
 
   const badges = [];
   if (studyDays >= 7) badges.push('🏆 Perfect Week');
@@ -2132,31 +2366,98 @@ async function generateWeeklyReport() {
   if (totalMin >= 240 * 5) badges.push('📚 Study Marathon');
   if (weekWpm.length >= 3) badges.push('⌨️ Typing Pro');
   if (weekFocus.length >= 5) badges.push('🎯 Focus Master');
+  if (doneTasks >= 10) badges.push('✅ Task Crusher');
   if (!badges.length) badges.push('📈 Keep Going!');
+
+  const completionRate = weekTasks.length ? Math.round((doneTasks / weekTasks.length) * 100) : 0;
+  const goalMins = (App.cache?.profile?.[0]?.dailyGoalMins || 240);
+  const goalHitsThisWeek = dayMins.filter(m => m >= goalMins).length;
 
   document.getElementById('weekly-report-content').innerHTML = `
     <div class="report-highlight">
       <h3>Week of ${formatDate(monday.toISOString().slice(0,10))} — ${formatDate(sunday.toISOString().slice(0,10))}</h3>
       <div class="badge-grid">${badges.map(b => '<span class="achieve-badge">' + b + '</span>').join('')}</div>
     </div>
+
+    <!-- KPI row -->
     <div class="stats-grid" style="margin-bottom:1rem">
-      <div class="stat-card"><div class="stat-label">Study Time</div><div class="stat-value" style="font-size:1.5rem">${Math.floor(totalMin/60)}h ${totalMin%60}m</div></div>
+      <div class="stat-card"><div class="stat-label">Total Study</div><div class="stat-value" style="font-size:1.5rem">${Math.floor(totalMin/60)}h ${totalMin%60}m</div></div>
       <div class="stat-card"><div class="stat-label">Active Days</div><div class="stat-value" style="font-size:1.5rem">${studyDays}/7</div></div>
-      <div class="stat-card"><div class="stat-label">Tasks Done</div><div class="stat-value" style="font-size:1.5rem">${doneTasks}/${weekTasks.length}</div></div>
-      <div class="stat-card"><div class="stat-label">Focus Sessions</div><div class="stat-value" style="font-size:1.5rem">${weekFocus.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Avg / Active Day</div><div class="stat-value" style="font-size:1.5rem">${Math.floor(avgDailyMin/60)}h ${avgDailyMin%60}m</div></div>
+      <div class="stat-card"><div class="stat-label">Goal Days Hit</div><div class="stat-value" style="font-size:1.5rem">${goalHitsThisWeek}/7</div></div>
+      <div class="stat-card"><div class="stat-label">Focus Sessions</div><div class="stat-value" style="font-size:1.5rem">${weekFocus.length}</div><div class="stat-label" style="font-size:.72rem">${Math.floor(totalFocusMin/60)}h ${totalFocusMin%60}m total</div></div>
+      <div class="stat-card"><div class="stat-label">Tasks Done</div><div class="stat-value" style="font-size:1.5rem">${doneTasks}/${weekTasks.length}</div><div class="stat-label" style="font-size:.72rem">${completionRate}% completion</div></div>
+      ${overdueTasks > 0 ? `<div class="stat-card" style="border-color:var(--red)"><div class="stat-label" style="color:var(--red)">Overdue Tasks</div><div class="stat-value" style="font-size:1.5rem;color:var(--red)">${overdueTasks}</div></div>` : ''}
+      ${weekWpm.length ? `<div class="stat-card"><div class="stat-label">Best WPM</div><div class="stat-value" style="font-size:1.5rem">${bestWpm}</div><div class="stat-label" style="font-size:.72rem">avg ${avgWpm} wpm</div></div>` : ''}
     </div>
-    <div class="card">
-      <div class="card-title">Time by Category</div>
-      ${Object.entries(catBreakdown).length ? Object.entries(catBreakdown).map(([cat, mins]) => `
+
+    <!-- Daily activity heatmap bar chart -->
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title">📅 Daily Breakdown</div>
+      <div style="display:flex;gap:.5rem;align-items:flex-end;height:100px;margin-top:.5rem">
+        ${dayMins.map((m, i) => {
+          const pct = Math.round((m / maxDayMin) * 100);
+          const isToday = weekDays[i] === todayStr();
+          const isBest = i === bestDayIdx && m > 0;
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:.3rem">
+            <span style="font-size:.7rem;color:var(--text3)">${m > 0 ? Math.floor(m/60)+'h'+(m%60 ? (m%60)+'m':'') : '–'}</span>
+            <div style="width:100%;background:var(--surface2);border-radius:4px;height:${Math.max(pct,3)}px;background:${isBest?'var(--accent)':isToday?'var(--accent-dim, rgba(56,189,248,.4))':'var(--surface2)'};transition:height .3s"></div>
+            <span style="font-size:.72rem;color:${isToday?'var(--accent)':'var(--text3)'};font-weight:${isToday?700:400}">${dayNames[i]}</span>
+          </div>`;
+        }).join('')}
+      </div>
+      ${bestDayIdx >= 0 && dayMins[bestDayIdx] > 0 ? `<p style="font-size:.78rem;color:var(--text2);margin-top:.5rem">🌟 Best day: <strong style="color:var(--accent)">${dayNames[bestDayIdx]}</strong> with ${Math.floor(dayMins[bestDayIdx]/60)}h ${dayMins[bestDayIdx]%60}m</p>` : ''}
+    </div>
+
+    <!-- Category breakdown -->
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title">🗂 Time by Category</div>
+      ${Object.entries(catBreakdown).length ? Object.entries(catBreakdown).sort((a,b)=>b[1]-a[1]).map(([cat, mins]) => `
         <div class="report-course-bar">
-          <div class="report-course-label"><span>${cat}</span><span>${Math.floor(mins/60)}h ${mins%60}m</span></div>
+          <div class="report-course-label"><span>${cat}</span><span>${Math.floor(mins/60)}h ${mins%60}m &nbsp;<span style="opacity:.55">(${Math.round((mins/totalMin)*100)}%)</span></span></div>
           <div class="report-course-bar-wrap"><div class="report-course-fill" style="width:${Math.round((mins/totalMin)*100)}%;background:${CAT_COLORS[cat]||'var(--accent)'}"></div></div>
         </div>`).join('') : '<div class="empty-state">No activity this week.</div>'}
     </div>
+
+    <!-- Course breakdown (if any) -->
+    ${Object.keys(courseBreakdown).length ? `<div class="card" style="margin-bottom:1rem">
+      <div class="card-title">📘 Time by Course</div>
+      ${Object.entries(courseBreakdown).sort((a,b)=>b[1]-a[1]).map(([cname, mins]) => `
+        <div class="report-course-bar">
+          <div class="report-course-label"><span>${cname}</span><span>${Math.floor(mins/60)}h ${mins%60}m</span></div>
+          <div class="report-course-bar-wrap"><div class="report-course-fill" style="width:${Math.round((mins/totalMin)*100)}%;background:var(--accent)"></div></div>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <!-- Task summary -->
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title">✅ Task Summary</div>
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.85rem;color:var(--text2)">
+        <span>✅ Done: <strong>${doneTasks}</strong></span>
+        <span>⏳ Pending: <strong>${weekTasks.length - doneTasks}</strong></span>
+        ${overdueTasks ? `<span style="color:var(--red)">⚠️ Overdue: <strong>${overdueTasks}</strong></span>` : ''}
+        <span>📊 Completion: <strong>${completionRate}%</strong></span>
+      </div>
+      <div style="margin-top:.75rem;background:var(--surface2);border-radius:6px;height:8px;overflow:hidden">
+        <div style="height:100%;width:${completionRate}%;background:var(--accent);border-radius:6px;transition:width .4s"></div>
+      </div>
+    </div>
+
+    <!-- WPM section -->
+    ${weekWpm.length ? `<div class="card" style="margin-bottom:1rem">
+      <div class="card-title">⌨️ Typing Performance</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Best WPM</div><div class="stat-value">${bestWpm}</div></div>
+        <div class="stat-card"><div class="stat-label">Avg WPM</div><div class="stat-value">${avgWpm}</div></div>
+        <div class="stat-card"><div class="stat-label">Tests</div><div class="stat-value">${weekWpm.length}</div></div>
+      </div>
+    </div>` : ''}
+
+    <!-- All activities log -->
     <details class="report-details">
-      <summary>All Activities This Week</summary>
+      <summary>📋 All Activities This Week (${weekLogs.length})</summary>
       ${weekLogs.length ? '<table class="report-activities-table"><tr><th>Date</th><th>Activity</th><th>Category</th><th>Duration</th></tr>' +
-        weekLogs.map(l => '<tr><td style="color:var(--text3);font-family:var(--mono);font-size:.78rem">' + l.date + '</td><td>' + l.activity + '</td><td><span class="cat-badge">' + l.category + '</span></td><td style="font-family:var(--mono)">' + (l.duration ? l.duration + 'm' : '—') + '</td></tr>').join('') +
+        weekLogs.sort((a,b)=>b.date.localeCompare(a.date)).map(l => '<tr><td style="color:var(--text3);font-family:var(--mono);font-size:.78rem">' + l.date + '</td><td>' + l.activity + '</td><td><span class="cat-badge">' + l.category + '</span></td><td style="font-family:var(--mono)">' + (l.duration ? l.duration + 'm' : '—') + '</td></tr>').join('') +
         '</table>' : '<div class="empty-state">No activities logged this week.</div>'}
     </details>`;
 }
@@ -2171,47 +2472,256 @@ async function generateMonthlyReport() {
   const studyDays = new Set(monthLogs.map(l => l.date)).size;
   const monthWpm = wpm.filter(w => w.date.startsWith(month));
   const monthFocus = focus.filter(f => f.date.startsWith(month));
+  const totalFocusMin = monthFocus.reduce((s, f) => s + (f.duration || 0), 0);
   const catBreakdown = {};
   monthLogs.forEach(l => { catBreakdown[l.category] = (catBreakdown[l.category] || 0) + (l.duration || 0); });
+  const courseBreakdown = {};
+  monthLogs.forEach(l => { if (l.course) courseBreakdown[l.course] = (courseBreakdown[l.course] || 0) + (l.duration || 0); });
   const daysInMonth = new Date(month.slice(0,4), month.slice(5,7), 0).getDate();
   const consistency = Math.round((studyDays / daysInMonth) * 100);
+  const avgDailyMin = studyDays > 0 ? Math.round(totalMin / studyDays) : 0;
+  const goalMins = (App.cache?.profile?.[0]?.dailyGoalMins || 240);
+
+  // Week-by-week breakdown within the month
+  const [yr, mo] = month.split('-').map(Number);
+  const weeklyTotals = [0, 0, 0, 0, 0];
+  monthLogs.forEach(l => {
+    const dayNum = parseInt(l.date.slice(8,10));
+    const weekIdx = Math.min(Math.floor((dayNum - 1) / 7), 4);
+    weeklyTotals[weekIdx] += (l.duration || 0);
+  });
+  const weeksUsed = Math.ceil(daysInMonth / 7);
+
+  // WPM stats
+  const avgWpm = monthWpm.length ? Math.round(monthWpm.reduce((s, w) => s + w.wpm, 0) / monthWpm.length) : 0;
+  const bestWpm = monthWpm.length ? Math.max(...monthWpm.map(w => w.wpm)) : 0;
+
+  // Task stats
+  const doneTasks = tasks.filter(t => t.done).length;
+  const overdueTasks = tasks.filter(t => !t.done && t.dueDate && t.dueDate < todayStr()).length;
+  const completionRate = tasks.length ? Math.round((doneTasks / tasks.length) * 100) : 0;
+
+  // Longest streak within month
+  const datesWithStudy = new Set(monthLogs.map(l => l.date));
+  let longestStreak = 0, currentStreak = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${month}-${String(d).padStart(2,'0')}`;
+    if (datesWithStudy.has(dateStr)) { currentStreak++; longestStreak = Math.max(longestStreak, currentStreak); }
+    else currentStreak = 0;
+  }
+
   const badges = [];
   if (studyDays >= 25) badges.push('🏆 Month Champion');
   if (studyDays >= 15) badges.push('🔥 Half Month');
   if (totalMin >= 3000) badges.push('📚 50h Club');
   if (monthFocus.length >= 20) badges.push('🎯 Focus King');
   if (monthWpm.length >= 10) badges.push('⌨️ Speed Typist');
+  if (longestStreak >= 7) badges.push('🔥 7-Day Streak');
+  if (consistency >= 80) badges.push('💪 Consistent');
   if (!badges.length) badges.push('📈 Building Momentum!');
+
+  const monthLabel = new Date(month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const maxWeekMin = Math.max(...weeklyTotals.slice(0, weeksUsed), 1);
 
   document.getElementById('monthly-report-content').innerHTML = `
     <div class="report-highlight">
-      <h3>${new Date(month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} — Summary</h3>
+      <h3>${monthLabel} — Summary</h3>
       <div class="badge-grid">${badges.map(b => '<span class="achieve-badge">' + b + '</span>').join('')}</div>
     </div>
+
+    <!-- KPI row -->
     <div class="stats-grid" style="margin-bottom:1rem">
-      <div class="stat-card"><div class="stat-label">Study Hours</div><div class="stat-value" style="font-size:1.5rem">${(totalMin/60).toFixed(1)}h</div></div>
-      <div class="stat-card"><div class="stat-label">Active Days</div><div class="stat-value" style="font-size:1.5rem">${studyDays}</div></div>
+      <div class="stat-card"><div class="stat-label">Total Hours</div><div class="stat-value" style="font-size:1.5rem">${(totalMin/60).toFixed(1)}h</div></div>
+      <div class="stat-card"><div class="stat-label">Active Days</div><div class="stat-value" style="font-size:1.5rem">${studyDays}/${daysInMonth}</div></div>
       <div class="stat-card"><div class="stat-label">Consistency</div><div class="stat-value" style="font-size:1.5rem">${consistency}%</div></div>
-      <div class="stat-card"><div class="stat-label">Focus Sessions</div><div class="stat-value" style="font-size:1.5rem">${monthFocus.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Avg / Active Day</div><div class="stat-value" style="font-size:1.5rem">${Math.floor(avgDailyMin/60)}h ${avgDailyMin%60}m</div></div>
+      <div class="stat-card"><div class="stat-label">Focus Sessions</div><div class="stat-value" style="font-size:1.5rem">${monthFocus.length}</div><div class="stat-label" style="font-size:.72rem">${Math.floor(totalFocusMin/60)}h ${totalFocusMin%60}m total</div></div>
+      <div class="stat-card"><div class="stat-label">Longest Streak</div><div class="stat-value" style="font-size:1.5rem">${longestStreak} days</div></div>
+      <div class="stat-card"><div class="stat-label">Tasks Done</div><div class="stat-value" style="font-size:1.5rem">${doneTasks}</div><div class="stat-label" style="font-size:.72rem">${completionRate}% rate</div></div>
+      ${overdueTasks > 0 ? `<div class="stat-card" style="border-color:var(--red)"><div class="stat-label" style="color:var(--red)">Overdue</div><div class="stat-value" style="font-size:1.5rem;color:var(--red)">${overdueTasks}</div></div>` : ''}
+      ${monthWpm.length ? `<div class="stat-card"><div class="stat-label">Best WPM</div><div class="stat-value" style="font-size:1.5rem">${bestWpm}</div><div class="stat-label" style="font-size:.72rem">avg ${avgWpm} wpm</div></div>` : ''}
     </div>
-    <div class="card">
-      <div class="card-title">Time Breakdown by Category</div>
-      ${Object.entries(catBreakdown).sort((a,b)=>b[1]-a[1]).map(([cat, mins]) => `
+
+    <!-- Week-by-week bars -->
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title">📆 Week-by-Week</div>
+      <div style="display:flex;gap:.75rem;align-items:flex-end;height:90px;margin-top:.5rem">
+        ${weeklyTotals.slice(0, weeksUsed).map((m, i) => {
+          const pct = Math.round((m / maxWeekMin) * 100);
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:.3rem">
+            <span style="font-size:.7rem;color:var(--text3)">${m > 0 ? (m/60).toFixed(1)+'h' : '–'}</span>
+            <div style="width:100%;border-radius:4px;height:${Math.max(pct,3)}px;background:${m>0?'var(--accent)':'var(--surface2)'};transition:height .3s"></div>
+            <span style="font-size:.72rem;color:var(--text3)">Wk ${i+1}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- Category breakdown -->
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title">🗂 Time Breakdown by Category</div>
+      ${Object.entries(catBreakdown).length ? Object.entries(catBreakdown).sort((a,b)=>b[1]-a[1]).map(([cat, mins]) => `
         <div class="report-course-bar">
-          <div class="report-course-label"><span>${cat}</span><span>${Math.floor(mins/60)}h ${mins%60}m (${Math.round((mins/totalMin)*100)}%)</span></div>
+          <div class="report-course-label"><span>${cat}</span><span>${Math.floor(mins/60)}h ${mins%60}m &nbsp;<span style="opacity:.55">(${Math.round((mins/totalMin)*100)}%)</span></span></div>
           <div class="report-course-bar-wrap"><div class="report-course-fill" style="width:${Math.round((mins/totalMin)*100)}%;background:${CAT_COLORS[cat]||'var(--accent)'}"></div></div>
-        </div>`).join('') || '<div class="empty-state">No data this month.</div>'}
+        </div>`).join('') : '<div class="empty-state">No data this month.</div>'}
     </div>
+
+    <!-- Course breakdown -->
+    ${Object.keys(courseBreakdown).length ? `<div class="card" style="margin-bottom:1rem">
+      <div class="card-title">📘 Time by Course</div>
+      ${Object.entries(courseBreakdown).sort((a,b)=>b[1]-a[1]).map(([cname, mins]) => `
+        <div class="report-course-bar">
+          <div class="report-course-label"><span>${cname}</span><span>${Math.floor(mins/60)}h ${mins%60}m &nbsp;<span style="opacity:.55">(${Math.round((mins/totalMin)*100)}%)</span></span></div>
+          <div class="report-course-bar-wrap"><div class="report-course-fill" style="width:${Math.round((mins/totalMin)*100)}%;background:var(--accent)"></div></div>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <!-- Task summary bar -->
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title">✅ Task Completion</div>
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.85rem;color:var(--text2);margin-bottom:.75rem">
+        <span>✅ Done: <strong>${doneTasks}</strong></span>
+        <span>⏳ Pending: <strong>${tasks.length - doneTasks}</strong></span>
+        ${overdueTasks ? `<span style="color:var(--red)">⚠️ Overdue: <strong>${overdueTasks}</strong></span>` : ''}
+        <span>📊 Rate: <strong>${completionRate}%</strong></span>
+      </div>
+      <div style="background:var(--surface2);border-radius:6px;height:8px;overflow:hidden">
+        <div style="height:100%;width:${completionRate}%;background:var(--accent);border-radius:6px;transition:width .4s"></div>
+      </div>
+    </div>
+
+    <!-- WPM section -->
+    ${monthWpm.length ? `<div class="card" style="margin-bottom:1rem">
+      <div class="card-title">⌨️ Typing Performance</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Best WPM</div><div class="stat-value">${bestWpm}</div></div>
+        <div class="stat-card"><div class="stat-label">Avg WPM</div><div class="stat-value">${avgWpm}</div></div>
+        <div class="stat-card"><div class="stat-label">Tests Taken</div><div class="stat-value">${monthWpm.length}</div></div>
+      </div>
+    </div>` : ''}
+
+    <!-- All activities log -->
     <details class="report-details">
-      <summary>All Activities This Month</summary>
+      <summary>📋 All Activities This Month (${monthLogs.length})</summary>
       ${monthLogs.length ? '<table class="report-activities-table"><tr><th>Date</th><th>Activity</th><th>Category</th><th>Duration</th></tr>' +
-        monthLogs.map(l => '<tr><td style="color:var(--text3);font-family:var(--mono);font-size:.78rem">' + l.date + '</td><td>' + l.activity + '</td><td><span class="cat-badge">' + l.category + '</span></td><td style="font-family:var(--mono)">' + (l.duration ? l.duration + 'm' : '—') + '</td></tr>').join('') +
+        monthLogs.sort((a,b)=>b.date.localeCompare(a.date)).map(l => '<tr><td style="color:var(--text3);font-family:var(--mono);font-size:.78rem">' + l.date + '</td><td>' + l.activity + '</td><td><span class="cat-badge">' + l.category + '</span></td><td style="font-family:var(--mono)">' + (l.duration ? l.duration + 'm' : '—') + '</td></tr>').join('') +
         '</table>' : '<div class="empty-state">No activities this month.</div>'}
     </details>`;
 }
 
 function metric(label, val) {
   return '<div class="report-metric"><span>' + label + '</span><span class="report-metric-val">' + val + '</span></div>';
+}
+
+async function generateAIReport() {
+  const range = document.getElementById('ai-report-range').value;
+  const focusType = document.getElementById('ai-report-focus').value;
+  const contentEl = document.getElementById('ai-report-content');
+  contentEl.innerHTML = `<div class="card"><div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0"><div class="splash-dot" style="animation-delay:0s"></div><div class="splash-dot" style="animation-delay:.18s"></div><div class="splash-dot" style="animation-delay:.36s"></div><span style="font-size:.85rem;color:var(--text2)">Analysing your data…</span></div></div>`;
+
+  const [logs, tasks, wpm, courses, focus] = await Promise.all([
+    fsGet('daily_logs'), fsGet('tasks'), fsGet('wpm_records'), fsGet('courses'), fsGet('focus_sessions')
+  ]);
+  const today = todayStr();
+  let filteredLogs = logs, filteredFocus = focus, filteredWpm = wpm;
+  if (range === 'week') {
+    const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const cutoff = sevenDaysAgo.toISOString().slice(0,10);
+    filteredLogs = logs.filter(l => l.date >= cutoff);
+    filteredFocus = focus.filter(f => f.date >= cutoff);
+    filteredWpm = wpm.filter(w => w.date >= cutoff);
+  } else if (range === 'month') {
+    const cutoff = today.slice(0,7);
+    filteredLogs = logs.filter(l => l.date.startsWith(cutoff));
+    filteredFocus = focus.filter(f => f.date.startsWith(cutoff));
+    filteredWpm = wpm.filter(w => w.date.startsWith(cutoff));
+  }
+
+  const totalMin = filteredLogs.reduce((s, l) => s + (l.duration || 0), 0);
+  const studyDays = new Set(filteredLogs.map(l => l.date)).size;
+  const catBreakdown = {};
+  filteredLogs.forEach(l => { catBreakdown[l.category] = (catBreakdown[l.category] || 0) + (l.duration || 0); });
+  const doneTasks = tasks.filter(t => t.done).length;
+  const overdueTasks = tasks.filter(t => !t.done && t.dueDate && t.dueDate < today).length;
+  const avgWpm = filteredWpm.length ? Math.round(filteredWpm.reduce((s, w) => s + w.wpm, 0) / filteredWpm.length) : null;
+  const goalMins = (App.cache?.profile?.[0]?.dailyGoalMins || 240);
+  const studyGoal = App.cache?.profile?.[0]?.studyGoal || 'not specified';
+
+  const rangeLabel = range === 'week' ? 'the past 7 days' : range === 'month' ? 'this month' : 'all time';
+  const dataSnippet = `
+Study goal: ${studyGoal}
+Daily target: ${Math.floor(goalMins/60)}h ${goalMins%60}m
+Period analysed: ${rangeLabel}
+Total study time: ${Math.floor(totalMin/60)}h ${totalMin%60}m across ${studyDays} days
+Focus sessions: ${filteredFocus.length}
+Tasks: ${doneTasks} done, ${overdueTasks} overdue out of ${tasks.length} total
+Categories: ${Object.entries(catBreakdown).map(([c,m]) => `${c}: ${Math.floor(m/60)}h ${m%60}m`).join(', ') || 'none'}
+${avgWpm ? `Average typing speed: ${avgWpm} WPM` : ''}
+Top 5 recent activities: ${filteredLogs.slice(-5).map(l => l.activity + ' (' + (l.duration||0) + 'm)').join(', ') || 'none'}
+  `.trim();
+
+  const focusPrompts = {
+    overall: 'Give a detailed overall analysis of this student\'s study patterns.',
+    productivity: 'Analyse their productivity patterns — when they\'re most effective, how they manage their time, and suggestions to improve output.',
+    consistency: 'Analyse their consistency and habit-building. Are they showing up regularly? What\'s their pattern?',
+    improvement: 'Focus on what they should improve. Be specific and actionable.',
+    strengths: 'Highlight their key strengths and what they\'re doing well. Be encouraging and specific.'
+  };
+
+  const prompt = `You are a personal study coach AI inside a study tracker app called DeepTrck. A student is asking for a personalised report.
+
+Here is their study data for ${rangeLabel}:
+${dataSnippet}
+
+Task: ${focusPrompts[focusType] || focusPrompts.overall}
+
+Format your response in clear sections using markdown-style headings (## Section). Include:
+1. A brief summary paragraph
+2. 2-3 specific observations backed by the data
+3. 2-3 concrete, actionable recommendations
+4. One encouraging closing line
+
+Keep it personal, specific to their data, and motivating. Don't be generic. Total length: 250-400 words.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.map(b => b.text || '').join('') || 'No response received.';
+
+    // Render markdown-ish text into styled HTML
+    const html = text
+      .replace(/^## (.+)$/gm, '<h4 style="color:var(--accent);font-size:.95rem;margin:1rem 0 .35rem;font-weight:700">$1</h4>')
+      .replace(/^### (.+)$/gm, '<h5 style="color:var(--text1);font-size:.88rem;margin:.75rem 0 .25rem;font-weight:600">$1</h5>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/^- (.+)$/gm, '<li style="margin:.2rem 0;padding-left:.25rem">$1</li>')
+      .replace(/(<li.*<\/li>\n?)+/g, m => `<ul style="margin:.35rem 0 .35rem 1rem;color:var(--text2);font-size:.875rem">${m}</ul>`)
+      .replace(/\n\n/g, '</p><p style="color:var(--text2);font-size:.875rem;line-height:1.7;margin:.4rem 0">')
+      .replace(/\n/g, '<br>');
+
+    contentEl.innerHTML = `
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+          <div class="card-title">🤖 AI Study Analysis</div>
+          <span style="font-size:.72rem;color:var(--text3);background:var(--surface2);padding:.2rem .6rem;border-radius:99px">${rangeLabel} · ${document.getElementById('ai-report-focus').options[document.getElementById('ai-report-focus').selectedIndex].text}</span>
+        </div>
+        <p style="color:var(--text2);font-size:.875rem;line-height:1.7;margin:.4rem 0">${html}</p>
+      </div>
+      <div style="text-align:center;margin-top:.5rem">
+        <button class="btn-outline" style="font-size:.8rem" onclick="generateAIReport()">↺ Regenerate</button>
+      </div>`;
+  } catch (e) {
+    contentEl.innerHTML = `<div class="card"><div class="empty-state" style="color:var(--red)">Failed to generate AI report. Check your connection and try again.</div></div>`;
+  }
 }
 
 function formatTime12(time24) {
@@ -2293,30 +2803,38 @@ function celebrateTask(checkboxEl) {
 
 function celebrateFocusDone() {
   burstConfetti(window.innerWidth/2, window.innerHeight/2);
-  const mins = Math.round((App.focusTotalSeconds || 0) / 60);
+  const totalWorkSecs = App.focusAccumulatedWorkSecs || App.focusTotalSeconds || 0;
+  const mins = Math.round(totalWorkSecs / 60);
   const xp = Math.max(10, mins * XP_FOCUS_MIN);
   showToast('Focus session complete! 🎯  +' + xp + ' XP  +5 🪙', 'success', 3500);
   addXp(xp, 'Focus session', null);
-  addCoins(5); // focus session = 5 coins
+  addCoins(5);
+  App.focusAccumulatedWorkSecs = 0;
   checkAchievementsAfterAction();
 }
 
 function celebrateStreak(n) {
-  if (n > 0 && n % 7 === 0) {
-    burstConfetti(window.innerWidth/2, 120);
-    showToast('🔥 ' + n + '-day streak! +' + XP_7DAY_STREAK + ' XP BONUS! Keep it up!', 'fire', 4000);
-    // Award 7-day streak bonus XP
-    const state = getXpState();
-    const streakKey = 'streak7_' + Math.floor(n / 7) + '_' + todayStr().slice(0,7);
-    if (!(state.streakBonuses || {})[streakKey]) {
+  if (n <= 0) return;
+  const state = getXpState();
+  const toastKey = 'streakToast_' + todayStr();
+  const alreadyToasted = (state.streakBonuses || {})[toastKey];
+  if (n % 7 === 0) {
+    const xpKey = 'streak7_' + Math.floor(n / 7) + '_' + todayStr().slice(0, 7);
+    if (!(state.streakBonuses || {})[xpKey]) {
       state.streakBonuses = state.streakBonuses || {};
-      state.streakBonuses[streakKey] = true;
+      state.streakBonuses[xpKey] = true;
+      state.streakBonuses[toastKey] = true;
       saveXpState(state);
+      burstConfetti(window.innerWidth / 2, 120);
+      showToast('🔥 ' + n + '-day streak! +' + XP_7DAY_STREAK + ' XP BONUS! Keep it up!', 'fire', 4000);
       addXp(XP_7DAY_STREAK, '7-day streak!', null);
-      addCoins(100); // weekly streak = 100 coins
+      addCoins(100);
     }
-  } else if (n >= 3) {
-    showToast('🔥 ' + n + ' days in a row!', 'fire', 2800);
+  } else if (n >= 3 && !alreadyToasted) {
+    state.streakBonuses = state.streakBonuses || {};
+    state.streakBonuses[toastKey] = true;
+    saveXpState(state);
+    showToast('🔥 ' + n + ' days in a row! Keep it up!', 'fire', 2800);
   }
 }
 
@@ -2817,7 +3335,12 @@ function checkAndAwardMissions(logs, tasks, focusSessions, goalMins) {
       done[m.id] = true;
       saveMissionsDone(done);
       addXp(m.xp, m.text, null);
-      if (typeof showToast === 'function') showToast('Mission done! ' + m.icon + ' +' + m.xp + ' XP', 'xp', 3000);
+      if (m.id === 'hit_goal') {
+        addCoins(20);
+        if (typeof showToast === 'function') showToast('🎯 Daily goal hit! +' + m.xp + ' XP  +20 🪙', 'success', 3500);
+      } else {
+        if (typeof showToast === 'function') showToast('Mission done! ' + m.icon + ' +' + m.xp + ' XP', 'xp', 3000);
+      }
     }
   });
 }
@@ -2975,7 +3498,8 @@ function getPetHunger(pet) {
 }
 
 function feedPet(foodId) {
-  const food = PET_FOOD.find(f => f.id === foodId);
+  const allFood = [...PET_FOOD, ...(window.PET_SHOP?.food || [])];
+  const food = allFood.find(f => f.id === foodId);
   if (!food) return;
   const pet = getPetState();
   if (!pet) { showToast('Hatch your pet first! 🥚', 'info'); return; }
@@ -3008,7 +3532,11 @@ function buyWardrobeItem(itemId) {
   pet.equippedItems.push(itemId);
   savePetState(pet);
   showToast(item.icon + ' Equipped ' + item.name + '! ' + item.bonus, 'success');
-  renderPetCard();
+  // Refresh all pet UI
+  renderPetWorldWardrobe();
+  ['pet-card-content','pet-page-content'].forEach(id => {
+    if (typeof window.renderEnhancedPetCard === 'function') window.renderEnhancedPetCard(id);
+  });
 }
 
 function hatchPet(archetype, name) {
@@ -3024,7 +3552,11 @@ function hatchPet(archetype, name) {
   savePetState(pet);
   const panel = document.getElementById('pet-hatch-panel');
   if (panel) panel.style.display = 'none';
-  renderPetCard();
+  // Refresh all pet UI
+  ['pet-card-content','pet-page-content'].forEach(id => {
+    if (typeof window.renderEnhancedPetCard === 'function') window.renderEnhancedPetCard(id);
+  });
+  renderPetWorldWardrobe();
   showToast('🎉 ' + pet.name + ' has hatched! Say hello to your new study buddy!', 'success', 4000);
 }
 
@@ -3566,12 +4098,9 @@ function renderPetWorld() {
     const petNameEl = document.getElementById('petworld-pet-name');
     if (petNameEl) petNameEl.textContent = petNameLabel;
 
-    // Use SVG renderer from pet.js
+    // Use SVG renderer from pet.js — always recreate to avoid stale DOM
     if (mainContent) {
-      // Only rebuild if container doesn't already have the SVG pet content
-      if (!document.getElementById('pet-page-content')) {
-        mainContent.innerHTML = '<div id="pet-page-content" style="padding:.5rem 0"></div>';
-      }
+      mainContent.innerHTML = '<div id="pet-page-content" style="padding:.5rem 0"></div>';
       if (typeof window.renderEnhancedPetCard === 'function') {
         setTimeout(() => window.renderEnhancedPetCard('pet-page-content'), 0);
       }

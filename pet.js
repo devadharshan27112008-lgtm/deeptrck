@@ -499,7 +499,7 @@ function destroyScene(containerId) {
   delete _scenes[containerId];
 }
 
-function buildScene(containerId, _glbSrc, config, moodKey) {
+function buildScene(containerId, archOverride, config, moodKey) {
   const m = MOOD[moodKey] || MOOD.Happy;
   destroyScene(containerId);
 
@@ -545,8 +545,8 @@ function buildScene(containerId, _glbSrc, config, moodKey) {
       });
   }
 
-  // SVG pet face
-  const arch = Object.keys(PET_CONFIG).find(k => PET_CONFIG[k] === config) || 'cat';
+  // SVG pet face — use passed archOverride first, then fall back to config lookup
+  const arch = archOverride || Object.keys(PET_CONFIG).find(k => PET_CONFIG[k] === config) || 'cat';
   const unlockInfo = PET_UNLOCK_LEVELS[arch] || PET_UNLOCK_LEVELS.cat;
   const svgHtml = getPetSVG(arch, moodKey, unlockInfo.color, unlockInfo.accent);
 
@@ -589,22 +589,26 @@ function foodHTML() {
 }
 
 function accHTML(eq) {
+  const equippedIds = eq || [];
   return [{id:'scholar_specs',name:'Scholar Specs',icon:'🤓',cost:120,bonus:'+2 XP/task'},
           {id:'cozy_scarf',   name:'Cozy Scarf',   icon:'🧣',cost:200,bonus:'-20% hunger'},
           {id:'focus_crown',  name:'Focus Crown',  icon:'👑',cost:500,bonus:'+5% XP'}]
-  .map(w=>{const on=(eq||[]).includes(w.id); return `
+  .map(w=>{
+    const on = equippedIds.includes(w.id);
+    return `
     <div style="display:flex;flex-direction:column;align-items:center;gap:3px;
       background:var(--bg3);border-radius:10px;padding:.48rem .28rem;
-      border:1px solid ${on?'var(--accent)':'var(--border)'};cursor:pointer;
-      transition:transform .15s,box-shadow .15s"
-      onclick="window.buyWardrobeItem('${w.id}')"
+      border:1px solid ${on?'var(--accent)':'var(--border)'};
+      cursor:pointer;transition:transform .15s,box-shadow .15s"
+      onclick="${on ? '' : `window.buyWardrobeItem('${w.id}')`}"
       onmouseover="this.style.transform='scale(1.08)';this.style.boxShadow='0 0 10px var(--accent)44'"
       onmouseout="this.style.transform='';this.style.boxShadow=''">
       <span style="font-size:1.4rem">${w.icon}</span>
       <span style="font-size:.6rem;font-weight:600;color:var(--text1)">${w.name}</span>
       <span style="font-size:.57rem;color:var(--text2)">${w.bonus}</span>
-      <span style="font-size:.57rem;color:${on?'var(--green)':'var(--amber)'}">${on?'✓ On':'⚡'+w.cost}</span>
-    </div>`;}).join('');
+      <span style="font-size:.57rem;font-weight:700;color:${on?'var(--green)':'var(--amber)'}">${on?'✓ Equipped':'⚡'+w.cost}</span>
+    </div>`;
+  }).join('');
 }
 
 function petsHTML(curArchetype) {
@@ -726,7 +730,23 @@ function buildHatchPanel(containerId) {
 window.renderEnhancedPetCard = function(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
-  if (!window.getPetState || !window.getPetHunger) return;
+  if (!window.getPetState || !window.getPetHunger) {
+    // App.js globals not ready yet — show spinner and retry
+    container.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;padding:1.5rem 0;color:var(--text3)">
+      <div style="width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:loadSpin .7s linear infinite"></div>
+      <span style="font-size:.75rem">Loading your buddy…</span>
+    </div>`;
+    let attempts = 0;
+    const retry = setInterval(() => {
+      attempts++;
+      if (window.getPetState && window.getPetHunger) {
+        clearInterval(retry);
+        window.renderEnhancedPetCard(containerId);
+      }
+      if (attempts > 80) clearInterval(retry);
+    }, 100);
+    return;
+  }
 
   const pet = window.getPetState();
 
@@ -749,6 +769,10 @@ window.renderEnhancedPetCard = function(containerId) {
   // Only rebuild scene if mood/archetype changed
   const sceneKey = `${arch}-${mood}`;
   const needsNewScene = !_scenes[containerId] || _scenes[containerId]._key !== sceneKey;
+
+  // Detach existing scene div BEFORE wiping innerHTML so it isn't destroyed
+  const existingScene = document.getElementById('pet-scene-wrap-' + containerId);
+  if (existingScene && !needsNewScene) existingScene.remove();
 
   container.innerHTML = '';
 
@@ -782,11 +806,17 @@ window.renderEnhancedPetCard = function(containerId) {
 
   // Scene (SVG pet)
   if (needsNewScene) {
-    const sceneDiv = buildScene(containerId, null, config, mood);
+    const sceneDiv = buildScene(containerId, arch, config, mood);
     container.appendChild(sceneDiv);
   } else {
-    const existingWrap = document.getElementById('pet-scene-wrap-'+containerId);
-    if (existingWrap) container.appendChild(existingWrap);
+    // Re-attach the detached scene div (was removed before innerHTML wipe)
+    const detachedScene = existingScene || document.getElementById('pet-scene-wrap-' + containerId);
+    if (detachedScene) container.appendChild(detachedScene);
+    else {
+      // Fallback: rebuild if somehow missing
+      const sceneDiv = buildScene(containerId, arch, config, mood);
+      container.appendChild(sceneDiv);
+    }
   }
 
   // Dashboard card only shows pet — no tabs

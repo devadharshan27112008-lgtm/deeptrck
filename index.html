@@ -355,6 +355,13 @@
             <button class="link-btn" onclick="showPage('tasks')" style="margin-top:.5rem">All tasks →</button>
           </div>
 
+          <!-- Today's Course Goals (dashboard) -->
+          <div class="card mod-card" id="dash-course-goals-card" style="display:none">
+            <div class="card-title">📘 Today's Course Goals</div>
+            <div id="dash-course-goals-list"></div>
+            <button class="link-btn" onclick="showPage('courses')" style="margin-top:.5rem">All courses →</button>
+          </div>
+
           <!-- 30-day streak grid -->
           <div class="card db-streak-card">
             <div class="card-title">30-Day Activity</div>
@@ -512,6 +519,14 @@
         No tasks yet. Hit <strong>+ New task</strong> to add one.
       </div>
 
+      <!-- Course Daily Goals -->
+      <div id="course-daily-goals-section" style="display:none">
+        <div class="task-section-header" style="margin-top:.75rem">
+          <span class="task-section-label">📘 Today's Course Goals</span>
+        </div>
+        <div id="course-daily-goals-list"></div>
+      </div>
+
       <div class="task-progress-row" id="task-progress-row" style="display:none">
         <div class="completion-bar-wrap"><div class="completion-bar" id="completion-bar"></div></div>
         <div class="completion-label" id="completion-label"></div>
@@ -525,9 +540,10 @@
         <p class="page-sub">Track time spent on each subject.</p>
       </div>
       <div class="card">
-        <div class="form-row">
-          <input type="text" id="course-name" class="input" placeholder="Course name…" style="flex:1">
-          <input type="number" id="course-goal" class="input" placeholder="Weekly goal (hrs)" style="max-width:160px" min="1">
+        <div class="form-row" style="flex-wrap:wrap;gap:.5rem">
+          <input type="text" id="course-name" class="input" placeholder="Course name…" style="flex:2;min-width:160px">
+          <input type="number" id="course-goal" class="input" placeholder="Daily goal (hrs)" style="max-width:140px" min="0.5" step="0.5">
+          <input type="date" id="course-enddate" class="input" style="max-width:160px" title="End date (optional)">
           <button class="btn-primary" onclick="addCourse()">Add Course</button>
         </div>
       </div>
@@ -745,11 +761,12 @@
     <div id="page-reports" class="page">
       <div class="page-header">
         <h1>Reports</h1>
-        <p class="page-sub">Weekly and monthly breakdowns of your progress.</p>
+        <p class="page-sub">Deep analytics and AI-powered insights into your study patterns.</p>
       </div>
       <div class="tab-bar">
         <button class="tab active" onclick="switchReportTab('weekly')">Weekly</button>
         <button class="tab" onclick="switchReportTab('monthly')">Monthly</button>
+        <button class="tab" onclick="switchReportTab('ai')">🤖 AI Insights</button>
       </div>
       <div id="report-weekly">
         <div class="form-row" style="margin-bottom:1rem">
@@ -767,23 +784,28 @@
         </div>
         <div id="monthly-report-content"></div>
       </div>
-    </div>
-
-    <!-- TRASH PAGE -->
-    <div id="page-trash" class="page">
-      <div class="page-header">
-        <h1>🗑️ Trash</h1>
-        <p class="page-sub">Items deleted after 7 days. Restore below.</p>
-      </div>
-      <div class="trash-toolbar">
-        <div class="trash-tabs">
-          <button class="tab active" id="trash-tab-tasks" onclick="switchTrashTab('tasks')">Tasks</button>
-          <button class="tab" id="trash-tab-logs" onclick="switchTrashTab('logs')">Daily Logs</button>
+      <div id="report-ai" style="display:none">
+        <div class="card" style="margin-bottom:1rem">
+          <div class="card-title">🤖 AI Study Coach</div>
+          <p style="font-size:.85rem;color:var(--text2);margin-bottom:1rem">Get personalised feedback on your habits, patterns, and actionable next steps — powered by AI.</p>
+          <div class="form-row" style="flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem">
+            <select id="ai-report-range" class="input" style="max-width:180px">
+              <option value="week">This week</option>
+              <option value="month" selected>This month</option>
+              <option value="all">All time</option>
+            </select>
+            <select id="ai-report-focus" class="input" style="max-width:220px">
+              <option value="overall">Overall analysis</option>
+              <option value="productivity">Productivity patterns</option>
+              <option value="consistency">Consistency & habits</option>
+              <option value="improvement">What to improve</option>
+              <option value="strengths">My strengths</option>
+            </select>
+            <button class="btn-primary" onclick="generateAIReport()">✨ Generate Report</button>
+          </div>
         </div>
-        <button class="btn-outline trash-empty-btn" onclick="emptyTrash()" style="font-size:.8rem;padding:.45rem 1rem;border-color:var(--red);color:var(--red)">🗑 Empty Trash</button>
+        <div id="ai-report-content"></div>
       </div>
-      <div id="trash-tasks-panel"><div id="trash-tasks-list"></div></div>
-      <div id="trash-logs-panel" style="display:none"><div id="trash-logs-list"></div></div>
     </div>
 
     <!-- SETTINGS PAGE -->
