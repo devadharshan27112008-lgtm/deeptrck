@@ -650,11 +650,10 @@ async function renderDashboard() {
   const goalMinsRem = goalMins % 60;
   document.getElementById('stat-goal').textContent = '/ ' + goalHrs + 'h' + (goalMinsRem ? ' ' + goalMinsRem + 'm' : '') + ' goal';
 
-  // Update progress ring (r=46, circumference=2*PI*46≈289)
+  // Ring r=28, circumference≈176
   const pct = Math.min(1, totalMin / goalMins);
-  const circumference = 289;
   const ring = document.getElementById('dash-ring');
-  if (ring) ring.style.strokeDashoffset = circumference * (1 - pct);
+  if (ring) ring.style.strokeDashoffset = 176 * (1 - pct);
   const pctEl = document.getElementById('db-ring-pct');
   if (pctEl) pctEl.textContent = Math.round(pct * 100) + '%';
 
@@ -662,15 +661,35 @@ async function renderDashboard() {
   document.getElementById('stat-streak').textContent = streak;
   celebrateStreak(streak);
 
+  // Pet name + level on dashboard
+  try {
+    const petState = getPetState ? getPetState() : null;
+    if (petState) {
+      const petDef = (window.PETS || []).find(p => p.id === petState.petId) ||
+                     (window.PET_SHOP?.pets || []).find(p => p.id === petState.petId);
+      const nameEl = document.getElementById('db-pet-inline-name');
+      const lvlEl  = document.getElementById('db-pet-inline-level');
+      if (nameEl && petDef) nameEl.textContent = petDef.name || 'Study Buddy';
+      if (lvlEl) lvlEl.textContent = 'Level ' + (petState.level || 1);
+    }
+  } catch(e) {}
+
+  // Missions inline on dashboard
+  fsGet('focus_logs').then(fl => {
+    renderMissions(logs, tasks, fl, goalMins);
+    checkAndAwardMissions(logs, tasks, fl, goalMins);
+    _renderDashboardMissions(logs, tasks, fl, goalMins);
+  });
+
   const now = new Date();
   const pendingTasks = sortTasks(tasks.filter(t => {
     if (t.done) return false;
-    if (t.repeat) return !(t.completedDates || []).includes(today); // repeat: pending if not done today
+    if (t.repeat) return !(t.completedDates || []).includes(today);
     return true;
   }));
   const doneTasks = tasks.filter(t => {
     if (t.done) return true;
-    if (t.repeat) return (t.completedDates || []).includes(today); // repeat: show as done if done today
+    if (t.repeat) return (t.completedDates || []).includes(today);
     return false;
   });
   const top10 = [...pendingTasks, ...doneTasks].slice(0, 10);
@@ -681,12 +700,12 @@ async function renderDashboard() {
   const best = wpmRecs.length ? Math.max(...wpmRecs.map(w => w.wpm)) : null;
   document.getElementById('stat-wpm').textContent = best ? best + ' WPM' : '—';
 
-  const overdue = pendingTasks.filter(t => t.dueDate && t.dueDate < today).length;
+  const overdue  = pendingTasks.filter(t => t.dueDate && t.dueDate < today).length;
   const dueToday = pendingTasks.filter(t => t.dueDate === today).length;
   const urgEl = document.getElementById('dash-tasks-urgency');
   if (urgEl) {
     const parts = [];
-    if (overdue) parts.push(`<span style="color:var(--red)">${overdue} overdue</span>`);
+    if (overdue)  parts.push(`<span style="color:var(--red)">${overdue} overdue</span>`);
     if (dueToday) parts.push(`<span style="color:var(--amber)">${dueToday} due today</span>`);
     urgEl.innerHTML = parts.join(' · ');
   }
@@ -710,7 +729,7 @@ async function renderDashboard() {
   }).join('') : '<div class="empty-state">No tasks yet. Add some in Tasks →</div>';
 
   const dashCourses = document.getElementById('dash-courses-list');
-  dashCourses.innerHTML = courses.slice(0, 5).map(c => `
+  if (dashCourses) dashCourses.innerHTML = courses.slice(0, 5).map(c => `
     <div style="margin-bottom:.65rem">
       <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:.3rem">
         <span>${c.name}</span>
@@ -723,17 +742,26 @@ async function renderDashboard() {
 
   renderWeeklyChart(logs);
   renderStreakGrid(logs);
-
-  // Gamification — missions system is the single source of truth for all daily rewards
   updateXpBar();
-  fsGet("focus_logs").then(fl => {
-    renderMissions(logs, tasks, fl, App.prefs.goalMins || 240);
-    checkAndAwardMissions(logs, tasks, fl, App.prefs.goalMins || 240);
-  });
   checkAchievementsAfterAction();
   setTimeout(renderDashboardAchievements, 200);
   setTimeout(renderCourseDailyGoals, 0);
+}
 
+function _renderDashboardMissions(logs, tasks, focusSessions, goalMins) {
+  const missions = getMissions(logs, tasks, focusSessions, goalMins);
+  const done = missions.filter(m => m.done).length;
+  const countEl = document.getElementById('db-missions-count');
+  if (countEl) countEl.textContent = done + ' / ' + missions.length;
+  const listEl = document.getElementById('db-missions-list');
+  if (!listEl) return;
+  listEl.innerHTML = missions.map(m => `
+    <div class="db-mission-item ${m.done ? 'done' : ''}">
+      <span class="db-mission-check">${m.done ? '✅' : '⬜'}</span>
+      <span class="db-mission-icon">${m.icon}</span>
+      <span class="db-mission-text">${m.text}</span>
+      <span class="db-mission-xp">+${m.xp} XP</span>
+    </div>`).join('');
 }
 function calcStreak(logs) {
   const days = [...new Set(logs.map(l => l.date))].sort();

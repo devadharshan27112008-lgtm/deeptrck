@@ -235,14 +235,6 @@
       <div class="topbar-date" id="topbar-date"></div>
       <div class="topbar-coins" id="topbar-coins">🪙 <span id="topbar-coins-val">0</span></div>
       <div class="topbar-actions">
-        <!-- Energy bar -->
-        <div class="topbar-energy-bar" title="Energy Level">
-          <span class="topbar-energy-icon">⚡</span>
-          <div class="topbar-energy-track">
-            <div class="topbar-energy-fill" id="topbar-energy-fill" style="width:100%"></div>
-          </div>
-          <span class="topbar-energy-pct" id="topbar-energy-pct">100%</span>
-        </div>
 
         <button class="topbar-action-btn" onclick="toggleMissionsPanel()" id="missions-topbar-btn" title="Daily Missions">
           🎯 <span class="topbar-action-label">Missions</span>
@@ -272,80 +264,91 @@
     <!-- ═══════════════════════════════════════ DASHBOARD ═══════════════════════════════════════ -->
     <div id="page-dashboard" class="page active">
 
-      <!-- Greeting bar -->
-      <div class="db-banner">
-        <div class="db-greeting-block">
+      <!-- ── TOP: Greeting + XP + Stats ── -->
+      <div class="db-topbar">
+        <div class="db-topbar-left">
           <div class="db-greeting" id="greeting"></div>
           <div class="db-sub" id="greeting-sub"></div>
         </div>
-
-        <div class="db-banner-right">
-          <!-- XP Level bar -->
-          <div class="db-banner-xp">
-            <div class="db-banner-level-badge" id="topbar-xp-level">1</div>
-            <div class="db-banner-xp-info">
-              <div class="db-banner-xp-top">
-                <span class="db-banner-xp-name" id="topbar-xp-level-name">Beginner</span>
-                <span class="db-banner-xp-count"><span id="topbar-xp-current">0</span> / <span id="topbar-xp-next">100</span> XP</span>
+        <div class="db-topbar-right">
+          <!-- XP bar -->
+          <div class="db-xp-row">
+            <div class="db-xp-badge" id="topbar-xp-level">1</div>
+            <div class="db-xp-info">
+              <div class="db-xp-top">
+                <span class="db-xp-name" id="topbar-xp-level-name">Beginner</span>
+                <span class="db-xp-count"><span id="topbar-xp-current">0</span> / <span id="topbar-xp-next">100</span> XP</span>
               </div>
-              <div class="db-banner-xp-track">
-                <div class="db-banner-xp-fill" id="topbar-xp-fill" style="width:0%"></div>
-              </div>
-              <div class="db-banner-xp-next">Next: <span id="db-banner-xp-next-name">Apprentice</span></div>
+              <div class="db-xp-track"><div class="db-xp-fill" id="topbar-xp-fill" style="width:0%"></div></div>
             </div>
           </div>
-
-          <div class="db-today-pill">
-            <div class="db-today-time" id="stat-study">0h 0m</div>
-            <div class="db-today-label" id="stat-goal">/ 4h goal</div>
+          <!-- Today stats -->
+          <div class="db-today-stats">
+            <div class="db-today-block">
+              <span class="db-today-time" id="stat-study">0h 0m</span>
+              <span class="db-today-goal" id="stat-goal">/ 4h goal</span>
+            </div>
+            <div class="db-mini-chips">
+              <span class="db-mini-chip fire" id="stat-streak">0</span><span class="db-mini-chip-label">🔥</span>
+              <span class="db-mini-chip" id="stat-tasks">0/0</span><span class="db-mini-chip-label">✅</span>
+            </div>
+          </div>
+          <!-- Progress ring -->
+          <div class="db-ring-wrap">
+            <svg width="72" height="72" viewBox="0 0 72 72">
+              <circle cx="36" cy="36" r="28" fill="none" stroke="var(--ring-track)" stroke-width="5"/>
+              <circle id="dash-ring" cx="36" cy="36" r="28" fill="none" stroke="var(--accent)" stroke-width="5"
+                stroke-dasharray="176" stroke-dashoffset="176" stroke-linecap="round"
+                transform="rotate(-90 36 36)" style="transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1)"/>
+            </svg>
+            <div class="db-ring-center"><span id="db-ring-pct">0%</span></div>
           </div>
         </div>
       </div>
 
-      <!-- Two-column layout: stats left, full pet right -->
-      <div class="db-two-col">
+      <!-- ── START FOCUS ── -->
+      <button class="db-focus-btn" onclick="showPage('focus')">▶ Start Focus Session</button>
 
-        <!-- LEFT: stats column -->
-        <div class="db-left-col">
+      <!-- ── PET — large, full width ── -->
+      <div class="card db-pet-full">
+        <div class="db-pet-full-inner">
+          <div class="db-pet-full-info">
+            <span class="db-pet-inline-name" id="db-pet-inline-name">Focus Cat</span>
+            <span class="db-pet-inline-level" id="db-pet-inline-level">Level 1</span>
+            <span class="sparks-display db-sparks-inline">⚡ <span class="sparks-count">0</span></span>
+          </div>
+          <div id="pet-card-content" class="db-pet-full-content">
+            <div class="empty-state">Loading your buddy...</div>
+          </div>
+        </div>
+      </div>
 
-          <!-- Goal ring + streak + weekly chart -->
-          <div class="db-hero-row">
-            <div class="db-ring-card">
-              <div class="db-ring-wrap">
-                <svg width="110" height="110" viewBox="0 0 110 110">
-                  <circle cx="55" cy="55" r="46" fill="none" stroke="var(--ring-track)" stroke-width="7"/>
-                  <circle id="dash-ring" cx="55" cy="55" r="46" fill="none" stroke="var(--accent)" stroke-width="7"
-                    stroke-dasharray="289" stroke-dashoffset="289" stroke-linecap="round"
-                    transform="rotate(-90 55 55)" style="transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1)"/>
-                </svg>
-                <div class="db-ring-center">
-                  <span class="db-ring-pct" id="db-ring-pct">0%</span>
-                  <span class="db-ring-sub">today</span>
-                </div>
-              </div>
-              <div class="db-ring-label">Daily Goal</div>
+      <!-- ── BOTTOM 2-COL: missions left | tasks+courses right ── -->
+      <div class="db-bottom-grid">
+
+        <!-- LEFT: Daily Missions -->
+        <div class="db-col-missions">
+          <div class="card db-missions-card">
+            <div class="db-missions-header">
+              <span class="db-missions-title">Daily Missions</span>
+              <span class="db-missions-count" id="db-missions-count">0 / 4</span>
             </div>
-
-            <div class="db-stat-chips">
-              <div class="db-chip db-chip-fire">
-                <div class="db-chip-val" id="stat-streak">0</div>
-                <div class="db-chip-label">day streak 🔥</div>
-              </div>
-              <div class="db-chip">
-                <div class="db-chip-val" id="stat-tasks">0/0</div>
-                <div class="db-chip-label">tasks done ✅</div>
-              </div>
-            </div>
-
-            <div class="db-week-card">
-              <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:.3rem">This week</div>
-              <div class="weekly-chart db-mini-chart" id="weekly-chart"></div>
-            </div>
+            <div id="db-missions-list" class="db-missions-list"></div>
           </div>
 
+          <!-- Weekly + 30-day tucked here -->
+          <div class="card" style="margin-top:1rem">
+            <div class="card-title">This Week</div>
+            <div class="weekly-chart db-mini-chart" id="weekly-chart"></div>
+          </div>
+          <div class="card db-streak-card" style="margin-top:1rem">
+            <div class="card-title">30-Day Activity</div>
+            <div class="streak-grid" id="streak-grid"></div>
+          </div>
+        </div>
 
-
-          <!-- Today's Tasks -->
+        <!-- RIGHT: Tasks + Courses -->
+        <div class="db-col-tasks">
           <div class="card mod-card db-tasks-card" data-module="tasks">
             <div class="card-title">
               Today's Tasks
@@ -355,43 +358,18 @@
             <button class="link-btn" onclick="showPage('tasks')" style="margin-top:.5rem">All tasks →</button>
           </div>
 
-          <!-- Today's Course Goals (dashboard) -->
-          <div class="card mod-card" id="dash-course-goals-card" style="display:none">
-            <div class="card-title">📘 Today's Course Goals</div>
+          <div class="card mod-card" id="dash-course-goals-card" style="display:none;margin-top:1rem">
+            <div class="card-title">📘 Today's Courses</div>
             <div id="dash-course-goals-list"></div>
             <button class="link-btn" onclick="showPage('courses')" style="margin-top:.5rem">All courses →</button>
           </div>
+        </div>
 
-          <!-- 30-day streak grid -->
-          <div class="card db-streak-card">
-            <div class="card-title">30-Day Activity</div>
-            <div class="streak-grid" id="streak-grid"></div>
-          </div>
+      </div><!-- /db-bottom-grid -->
 
-
-
-          <!-- Hidden compat elements -->
-          <span id="stat-wpm" style="display:none"></span>
-          <div id="dash-courses-list" style="display:none"></div>
-
-        </div><!-- /db-left-col -->
-
-        <!-- RIGHT: full pet panel — same content as My Pet page -->
-        <div class="db-right-col">
-          <div class="card db-pet-panel">
-            <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
-              <span>🐾 Study Buddy</span>
-              <span class="sparks-display" style="font-size:.78rem;color:var(--amber)">⚡ 0 Sparks</span>
-            </div>
-            <div id="pet-card-content">
-              <div class="empty-state">Loading your buddy...</div>
-            </div>
-          </div>
-        </div><!-- /db-right-col -->
-
-      </div><!-- /db-two-col -->
-
-
+      <!-- Hidden compat -->
+      <span id="stat-wpm" style="display:none"></span>
+      <div id="dash-courses-list" style="display:none"></div>
 
     </div>
     <!-- ═══════════════════════════════════════ /DASHBOARD ═══════════════════════════════════════ -->
@@ -714,17 +692,6 @@
             <input type="text" id="focus-task-input" class="input" placeholder="Or type what you're working on…" style="margin-top:.75rem;font-size:.82rem">
           </div>
 
-          <!-- Energy Bar -->
-          <div class="card energy-card">
-            <div class="card-title">⚡ Energy</div>
-            <p style="font-size:.75rem;color:var(--text3);margin-bottom:.5rem">Depletes during focus. Rest to restore.</p>
-            <div class="energy-bar-track">
-              <div class="energy-bar-fill" style="width:100%"></div>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--text3);margin-top:.3rem">
-              <span>Energy level</span><span class="energy-pct">100%</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
