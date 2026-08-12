@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeepTrck — Study Command Center</title>
+<meta name="description" content="DeepTrck — a focused daily study companion for school and college.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ AUTH SCREEN ============ -->
+  <section id="screen-auth" class="screen active">
+    <div class="auth-wrap">
+      <div class="brand">
+        <div class="brand-mark">DT</div>
+        <div class="brand-text">
+          <span class="brand-name">Deep<em>Trck</em></span>
+          <span class="brand-tag">Study Command Center</span>
+        </div>
+      </div>
+
+      <div class="auth-card" id="auth-card">
+        <div class="auth-toggle">
+          <button type="button" class="auth-toggle-btn is-active" data-auth-mode="login">Log in</button>
+          <button type="button" class="auth-toggle-btn" data-auth-mode="signup">Sign up</button>
+        </div>
+
+        <form id="form-login" class="auth-form">
+          <label class="field">
+            <span class="field-label">Email</span>
+            <input type="email" name="email" autocomplete="email" required placeholder="you@school.edu">
+          </label>
+          <label class="field">
+            <span class="field-label">Password</span>
+            <input type="password" name="password" autocomplete="current-password" required placeholder="••••••••">
+          </label>
+          <button type="submit" class="btn btn-primary btn-block">Log in</button>
+          <p class="auth-error" id="login-error" hidden></p>
+        </form>
+
+        <form id="form-signup" class="auth-form" hidden>
+          <label class="field">
+            <span class="field-label">Name</span>
+            <input type="text" name="name" autocomplete="name" required placeholder="Your name">
+          </label>
+          <label class="field">
+            <span class="field-label">Email</span>
+            <input type="email" name="email" autocomplete="email" required placeholder="you@school.edu">
+          </label>
+          <label class="field">
+            <span class="field-label">Password</span>
+            <input type="password" name="password" autocomplete="new-password" required minlength="6" placeholder="At least 6 characters">
+          </label>
+          <button type="submit" class="btn btn-primary btn-block">Create account</button>
+          <p class="auth-error" id="signup-error" hidden></p>
+        </form>
+      </div>
+
+      <p class="auth-footnote">Your progress is saved to your DeepTrck account and syncs everywhere you log in.</p>
+    </div>
+  </section>
+
+  <!-- ============ TRACK SELECT SCREEN ============ -->
+  <section id="screen-track" class="screen">
+    <div class="track-wrap">
+      <div class="track-head">
+        <span class="eyebrow">One-time setup</span>
+        <h1>Which track fits you?</h1>
+        <p>DeepTrck keeps School and College completely separate — pick your track and the interface adapts to it. You can switch later from Profile.</p>
+      </div>
+
+      <div class="track-grid">
+        <button type="button" class="track-card" data-track="school">
+          <span class="track-icon">🎒</span>
+          <span class="track-name">School Mode</span>
+          <span class="track-desc">Guided, visual, gamified — XP, streaks, and a virtual pet keep daily study fun.</span>
+        </button>
+        <button type="button" class="track-card" data-track="college">
+          <span class="track-icon">🎓</span>
+          <span class="track-name">College Mode</span>
+          <span class="track-desc">Dense and rigorous — courses, projects, notes, GPA tracking, and career tools.</span>
+        </button>
+      </div>
+      <p class="auth-error" id="track-error" hidden></p>
+    </div>
+  </section>
+
+  <!-- ============ MAIN APP SHELL ============ -->
+  <div id="shell" class="shell hidden">
+
+    <!-- Side navigation (desktop) -->
+    <nav class="sidenav" aria-label="Primary">
+      <div class="sidenav-brand">
+        <span class="brand-mark brand-mark-sm">DT</span>
+        <span class="sidenav-brand-name">DeepTrck</span>
+      </div>
+      <div class="sidenav-links" id="sidenav-links">
+        <!-- populated by app.js based on track -->
+      </div>
+      <button type="button" class="sidenav-logout" id="btn-logout">
+        <span>Log out</span>
+      </button>
+    </nav>
+
+    <!-- Main content -->
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <h1 id="topbar-heading">Home</h1>
+          <p id="topbar-sub">Good to see you.</p>
+        </div>
+        <div class="topbar-stats">
+          <div class="stat-chip stat-streak">
+            <span class="stat-icon">🔥</span>
+            <span class="stat-value" id="stat-streak">0</span>
+            <span class="stat-label">day streak</span>
+          </div>
+          <div class="stat-chip stat-xp">
+            <span class="stat-icon">✦</span>
+            <span class="stat-value" id="stat-xp">0</span>
+            <span class="stat-label">XP</span>
+          </div>
+          <div class="stat-chip stat-credits">
+            <span class="stat-icon">◆</span>
+            <span class="stat-value" id="stat-credits">0</span>
+            <span class="stat-label">credits</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- HOME TAB -->
+      <section id="tab-home" class="tab active">
+        <div class="today-panel">
+          <div class="today-panel-head">
+            <span class="eyebrow">Today</span>
+            <h2 id="today-date">—</h2>
+          </div>
+          <div class="today-empty" id="today-empty">
+            <p>No scheduled course days yet.</p>
+            <p class="muted-sm">Add a course and DeepTrck will generate your daily schedule automatically.</p>
+            <button type="button" class="btn btn-primary" id="btn-add-course-empty">+ Add your first course</button>
+          </div>
+          <div class="today-list" id="today-list" hidden></div>
+        </div>
+
+        <div class="quick-actions">
+          <button type="button" class="quick-action" data-nav="courses">
+            <span class="quick-action-icon">＋</span>
+            <span>Add Course</span>
+          </button>
+          <button type="button" class="quick-action" data-nav="tasks">
+            <span class="quick-action-icon">＋</span>
+            <span>Add Task</span>
+          </button>
+          <button type="button" class="quick-action" data-nav="focus">
+            <span class="quick-action-icon">▶</span>
+            <span>Start Focus</span>
+          </button>
+        </div>
+
+        <div class="section-block">
+          <div class="section-block-head">
+            <span class="eyebrow">Continue learning</span>
+          </div>
+          <div class="empty-state" id="continue-empty">
+            <p>Your active courses will show up here once you create one.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- COURSES TAB -->
+      <section id="tab-courses" class="tab">
+        <div class="placeholder-block">
+          <span class="placeholder-badge">Phase 2</span>
+          <h2>Courses — daily schedule system</h2>
+          <p>This is where long courses get broken into Monday–Sunday scheduled days with checkboxes, auto-calculated progress, and the course detail view (Overview / Schedule / Resources / Progress).</p>
+          <p class="muted-sm">Coming in the next build phase.</p>
+        </div>
+      </section>
+
+      <!-- TASKS TAB -->
+      <section id="tab-tasks" class="tab">
+        <div class="placeholder-block">
+          <span class="placeholder-badge">Phase 3</span>
+          <h2>Tasks</h2>
+          <p>Homework, assignments, and custom tasks with Today / Upcoming / Completed / Overdue filters.</p>
+        </div>
+      </section>
+
+      <!-- FOCUS TAB -->
+      <section id="tab-focus" class="tab">
+        <div class="placeholder-block">
+          <span class="placeholder-badge">Phase 6</span>
+          <h2>Focus</h2>
+          <p>Pomodoro and Flowtime timers, tied to a course or task, with session history.</p>
+        </div>
+      </section>
+
+      <!-- PROGRESS TAB -->
+      <section id="tab-progress" class="tab">
+        <div class="placeholder-block">
+          <span class="placeholder-badge">Phase 6</span>
+          <h2>Progress</h2>
+          <p>XP, level, streak history, course completion, and Credit earning/spending over time.</p>
+        </div>
+      </section>
+
+      <!-- REWARDS TAB -->
+      <section id="tab-rewards" class="tab">
+        <div class="placeholder-block">
+          <span class="placeholder-badge">Phase 5</span>
+          <h2>Rewards</h2>
+          <p>Spend Credits on fixed-price cosmetics and unlocks. Every price is shown upfront — no chance mechanics.</p>
+        </div>
+      </section>
+
+      <!-- PROFILE TAB -->
+      <section id="tab-profile" class="tab">
+        <div class="profile-block">
+          <div class="profile-card">
+            <div class="profile-avatar" id="profile-avatar">–</div>
+            <div class="profile-meta">
+              <h2 id="profile-name">—</h2>
+              <p id="profile-email" class="muted-sm">—</p>
+              <span class="track-pill" id="profile-track">—</span>
+            </div>
+          </div>
+          <div class="profile-actions">
+            <button type="button" class="btn btn-secondary" id="btn-switch-track">Switch School / College track</button>
+            <button type="button" class="btn btn-danger-ghost" id="btn-logout-2">Log out</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom navigation (mobile) -->
+    <nav class="bottomnav" id="bottomnav" aria-label="Primary mobile">
+      <!-- populated by app.js -->
+    </nav>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" hidden></div>
+
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
