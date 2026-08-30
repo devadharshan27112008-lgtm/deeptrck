@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DeepTrck — Study Command Center</title>
 <meta name="description" content="DeepTrck — a focused daily study companion for school and college.">
+<meta name="theme-color" content="#0ea5e9">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -14,11 +18,18 @@
 
 <div id="app">
 
+  <!-- Offline Banner -->
+  <div id="offline-banner" class="offline-banner" hidden>
+    <span>⚠️ You are offline. Changes will sync when connectivity is restored.</span>
+  </div>
+
   <!-- ============ AUTH SCREEN ============ -->
   <section id="screen-auth" class="screen active">
     <div class="auth-wrap">
       <div class="brand">
-        <div class="brand-mark">DT</div>
+        <div class="brand-mark">
+          <img src="icon-192.png" alt="" class="brand-mark-emoji">
+        </div>
         <div class="brand-text">
           <span class="brand-name">Deep<em>Trck</em></span>
           <span class="brand-tag">Study Command Center</span>
@@ -27,8 +38,8 @@
 
       <div class="auth-card" id="auth-card">
         <div class="auth-toggle">
-          <button type="button" class="auth-toggle-btn is-active" data-auth-mode="login">Log in</button>
-          <button type="button" class="auth-toggle-btn" data-auth-mode="signup">Sign up</button>
+          <button type="button" class="auth-toggle-btn is-active" data-auth-mode="login" aria-pressed="true">Log in</button>
+          <button type="button" class="auth-toggle-btn" data-auth-mode="signup" aria-pressed="false">Sign up</button>
         </div>
 
         <form id="form-login" class="auth-form">
@@ -70,21 +81,21 @@
   <section id="screen-track" class="screen">
     <div class="track-wrap">
       <div class="track-head">
-        <span class="eyebrow">One-time setup</span>
+        <span class="eyebrow">Quick setup</span>
         <h1>Which track fits you?</h1>
-        <p>DeepTrck keeps School and College completely separate — pick your track and the interface adapts to it. You can switch later from Profile.</p>
+        <p>Pick your track to personalize your study workspace. Switch anytime from Profile.</p>
       </div>
 
       <div class="track-grid">
         <button type="button" class="track-card" data-track="school">
           <span class="track-icon">🎒</span>
           <span class="track-name">School Mode</span>
-          <span class="track-desc">Guided, visual, gamified — XP, streaks, and a virtual pet keep daily study fun.</span>
+          <span class="track-desc">For school subjects, homework, and daily study streaks.</span>
         </button>
         <button type="button" class="track-card" data-track="college">
           <span class="track-icon">🎓</span>
           <span class="track-name">College Mode</span>
-          <span class="track-desc">Dense and rigorous — courses, projects, notes, GPA tracking, and career tools.</span>
+          <span class="track-desc">For university courses, lab reports, and deep focus.</span>
         </button>
       </div>
       <p class="auth-error" id="track-error" hidden></p>
@@ -97,7 +108,7 @@
     <!-- Side navigation (desktop) -->
     <nav class="sidenav" aria-label="Primary">
       <div class="sidenav-brand">
-        <span class="brand-mark brand-mark-sm">DT</span>
+        <span class="brand-mark brand-mark-sm"><img src="icon-192.png" alt="DeepTrck Logo" class="brand-mark-emoji"></span>
         <span class="sidenav-brand-name">DeepTrck</span>
       </div>
       <div class="sidenav-links" id="sidenav-links">
@@ -120,11 +131,6 @@
             <span class="stat-icon">🔥</span>
             <span class="stat-value" id="stat-streak">0</span>
             <span class="stat-label">day streak</span>
-          </div>
-          <div class="stat-chip stat-xp">
-            <span class="stat-icon">✦</span>
-            <span class="stat-value" id="stat-xp">0</span>
-            <span class="stat-label">XP</span>
           </div>
           <div class="stat-chip stat-credits">
             <span class="stat-icon">◆</span>
@@ -149,6 +155,41 @@
           <div class="today-list" id="today-list" hidden></div>
         </div>
 
+        <!-- College Academic Standing Widget -->
+        <div class="track-widget college-widget" id="home-college-widget" hidden>
+          <div class="track-widget-head">
+            <span class="eyebrow">Academic Standing</span>
+            <h3>🎓 College Course & Credit Summary</h3>
+          </div>
+          <div class="gpa-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="gpa-card">
+              <span class="gpa-value" id="home-credits-val">0.0</span>
+              <span class="gpa-label">Enrolled Credits</span>
+            </div>
+            <div class="gpa-card">
+              <span class="gpa-value" id="home-courses-val">0</span>
+              <span class="gpa-label">Active Courses</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- School Subject Mastery Widget -->
+        <div class="track-widget school-widget" id="home-school-widget" hidden>
+          <div class="track-widget-head">
+            <span class="eyebrow">Study Companion</span>
+            <h3>🎒 School Subject Mastery & Pet Status</h3>
+          </div>
+          <div class="school-widget-body">
+            <div class="pet-status-card">
+              <span class="pet-icon">🐾</span>
+              <div>
+                <h4 id="pet-mood-title">Study Companion Active</h4>
+                <p class="muted-sm" id="pet-mood-sub">Keep your streak going to level up your pet!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="quick-actions">
           <button type="button" class="quick-action" data-nav="courses">
             <span class="quick-action-icon">＋</span>
@@ -171,69 +212,238 @@
           <div class="empty-state" id="continue-empty">
             <p>Your active courses will show up here once you create one.</p>
           </div>
+          <div class="continue-list" id="continue-list" hidden></div>
         </div>
       </section>
 
       <!-- COURSES TAB -->
       <section id="tab-courses" class="tab">
-        <div class="placeholder-block">
-          <span class="placeholder-badge">Phase 2</span>
-          <h2>Courses — daily schedule system</h2>
-          <p>This is where long courses get broken into Monday–Sunday scheduled days with checkboxes, auto-calculated progress, and the course detail view (Overview / Schedule / Resources / Progress).</p>
-          <p class="muted-sm">Coming in the next build phase.</p>
+        <div class="courses-header">
+          <div>
+            <span class="eyebrow">Long-term learning</span>
+            <h2>Your courses</h2>
+          </div>
+          <button type="button" class="btn btn-primary" id="btn-new-course">+ New Course</button>
         </div>
+
+        <div class="task-filters" id="course-category-filters" style="margin-bottom: 20px;">
+          <button type="button" class="task-filter is-active" data-course-filter="all">All Courses</button>
+          <button type="button" class="task-filter" data-course-filter="academic">Academic Courses</button>
+          <button type="button" class="task-filter" data-course-filter="online">Online Certifications</button>
+        </div>
+
+        <div class="courses-empty" id="courses-empty" hidden>
+          <p>No courses yet.</p>
+          <p class="muted-sm">Add one and DeepTrck will generate a Monday–Sunday daily schedule automatically.</p>
+          <button type="button" class="btn btn-primary" id="btn-new-course-empty">+ Add your first course</button>
+        </div>
+
+        <div class="course-grid" id="course-grid" hidden></div>
       </section>
 
       <!-- TASKS TAB -->
       <section id="tab-tasks" class="tab">
-        <div class="placeholder-block">
-          <span class="placeholder-badge">Phase 3</span>
-          <h2>Tasks</h2>
-          <p>Homework, assignments, and custom tasks with Today / Upcoming / Completed / Overdue filters.</p>
+        <div class="courses-header">
+          <div>
+            <span class="eyebrow">Small academic actions</span>
+            <h2>Tasks</h2>
+          </div>
+          <button type="button" class="btn btn-primary" id="btn-new-task">+ New Task</button>
         </div>
+
+        <div class="task-filters" id="task-filters">
+          <button type="button" class="task-filter is-active" data-filter="today">Today</button>
+          <button type="button" class="task-filter" data-filter="upcoming">Upcoming</button>
+          <button type="button" class="task-filter" data-filter="completed">Completed</button>
+          <button type="button" class="task-filter" data-filter="overdue">Overdue</button>
+        </div>
+
+        <div class="task-list" id="task-list"></div>
+        <div class="empty-state" id="task-empty" hidden>Nothing here.</div>
       </section>
 
       <!-- FOCUS TAB -->
       <section id="tab-focus" class="tab">
-        <div class="placeholder-block">
-          <span class="placeholder-badge">Phase 6</span>
-          <h2>Focus</h2>
-          <p>Pomodoro and Flowtime timers, tied to a course or task, with session history.</p>
+        <div class="courses-header">
+          <div>
+            <span class="eyebrow">Deep study sessions</span>
+            <h2>Focus</h2>
+          </div>
         </div>
-      </section>
 
-      <!-- PROGRESS TAB -->
-      <section id="tab-progress" class="tab">
-        <div class="placeholder-block">
-          <span class="placeholder-badge">Phase 6</span>
-          <h2>Progress</h2>
-          <p>XP, level, streak history, course completion, and Credit earning/spending over time.</p>
-        </div>
-      </section>
+        <div class="focus-panel">
+          <div class="focus-setup">
+            <div class="mode-toggle" id="focus-mode-toggle" role="group" aria-label="Timer mode">
+              <button type="button" class="mode-toggle-btn is-active" data-mode="pomodoro" aria-pressed="true">Pomodoro</button>
+              <button type="button" class="mode-toggle-btn" data-mode="flowtime" aria-pressed="false">Flowtime</button>
+            </div>
 
-      <!-- REWARDS TAB -->
-      <section id="tab-rewards" class="tab">
-        <div class="placeholder-block">
-          <span class="placeholder-badge">Phase 5</span>
-          <h2>Rewards</h2>
-          <p>Spend Credits on fixed-price cosmetics and unlocks. Every price is shown upfront — no chance mechanics.</p>
-        </div>
-      </section>
+            <div class="pomodoro-presets" id="pomodoro-presets">
+              <button type="button" class="preset-pill" data-minutes="15">15 min</button>
+              <button type="button" class="preset-pill is-active" data-minutes="25">25 min</button>
+              <button type="button" class="preset-pill" data-minutes="45">45 min</button>
+            </div>
 
-      <!-- PROFILE TAB -->
-      <section id="tab-profile" class="tab">
-        <div class="profile-block">
-          <div class="profile-card">
-            <div class="profile-avatar" id="profile-avatar">–</div>
-            <div class="profile-meta">
-              <h2 id="profile-name">—</h2>
-              <p id="profile-email" class="muted-sm">—</p>
-              <span class="track-pill" id="profile-track">—</span>
+            <label class="field">
+              <span class="field-label">Course (optional)</span>
+              <select id="focus-course-select"><option value="">No course</option></select>
+            </label>
+            <label class="field">
+              <span class="field-label">Task (optional)</span>
+              <select id="focus-task-select"><option value="">No task</option></select>
+            </label>
+          </div>
+
+          <div class="focus-timer-wrap">
+            <div class="focus-ring">
+              <svg viewBox="0 0 200 200" class="focus-ring-svg" aria-hidden="true">
+                <circle cx="100" cy="100" r="88" class="focus-ring-track"></circle>
+                <circle cx="100" cy="100" r="88" class="focus-ring-fill" id="focus-ring-fill"></circle>
+              </svg>
+              <div class="focus-ring-center">
+                <span class="focus-time" id="focus-time">25:00</span>
+                <span class="focus-mode-label" id="focus-mode-label">Pomodoro</span>
+              </div>
+            </div>
+
+            <div class="focus-controls">
+              <button type="button" class="btn btn-secondary" id="btn-focus-reset">Reset</button>
+              <button type="button" class="btn btn-primary" id="btn-focus-toggle">Start</button>
+              <button type="button" class="btn btn-secondary" id="btn-focus-finish" hidden>Finish</button>
             </div>
           </div>
-          <div class="profile-actions">
-            <button type="button" class="btn btn-secondary" id="btn-switch-track">Switch School / College track</button>
-            <button type="button" class="btn btn-danger-ghost" id="btn-logout-2">Log out</button>
+        </div>
+
+        <div class="section-block">
+          <div class="section-block-head">
+            <span class="eyebrow">Session history</span>
+          </div>
+          <div class="empty-state" id="focus-history-empty">No focus sessions yet — start one above.</div>
+          <div class="focus-history-list" id="focus-history-list" hidden></div>
+        </div>
+      </section>
+
+      <!-- PROFILE TAB (Contains Account, Progress, Rewards Sub-sections) -->
+      <section id="tab-profile" class="tab">
+        <div class="courses-header">
+          <div>
+            <span class="eyebrow">Personal Command Hub</span>
+            <h2>Profile & Extras</h2>
+          </div>
+        </div>
+
+        <div class="task-filters" id="profile-subnav" style="margin-bottom: 20px;">
+          <button type="button" class="task-filter is-active" data-profile-tab="account">Account & Track</button>
+          <button type="button" class="task-filter" data-profile-tab="progress">Progress & Analytics</button>
+          <button type="button" class="task-filter" data-profile-tab="rewards">Rewards Shop</button>
+        </div>
+
+        <!-- SUBTAB 1: ACCOUNT -->
+        <div id="profile-subtab-account" class="profile-subtab">
+          <div class="profile-block">
+            <div class="profile-card">
+              <div class="profile-avatar" id="profile-avatar">–</div>
+              <div class="profile-meta">
+                <h2 id="profile-name">—</h2>
+                <p id="profile-email" class="muted-sm">—</p>
+                <span class="track-pill" id="profile-track">—</span>
+              </div>
+            </div>
+
+            <div class="profile-stats">
+              <div class="profile-stat">
+                <span id="profile-streak">0</span>
+                <small>Day streak</small>
+              </div>
+              <div class="profile-stat">
+                <span id="profile-credits">0</span>
+                <small>Credits Balance</small>
+              </div>
+            </div>
+
+            <div class="profile-actions">
+              <button type="button" class="btn btn-secondary" id="btn-switch-track">Switch School / College track</button>
+              <button type="button" class="btn btn-danger-ghost" id="btn-logout-2">Log out</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 2: PROGRESS -->
+        <div id="profile-subtab-progress" class="profile-subtab" hidden>
+          <div class="progress-stat-grid">
+            <div class="progress-stat"><span id="pg-streak">0</span><small>Day streak</small></div>
+            <div class="progress-stat"><span id="pg-credits">0</span><small>Credits balance</small></div>
+            <div class="progress-stat"><span id="pg-earned">0</span><small>Credits earned</small></div>
+            <div class="progress-stat"><span id="pg-spent">0</span><small>Credits spent</small></div>
+            <div class="progress-stat"><span id="pg-courses-done">0</span><small>Courses completed</small></div>
+            <div class="progress-stat"><span id="pg-focus-time">0m</span><small>Total focus time</small></div>
+          </div>
+
+          <div class="section-block progress-section">
+            <div class="section-block-head">
+              <span class="eyebrow">Last 7 days</span>
+            </div>
+            <div class="activity-strip" id="activity-strip"></div>
+          </div>
+
+          <div class="section-block progress-section" id="college-progress-block" hidden>
+            <div class="section-block-head">
+              <span class="eyebrow">College Academic Metrics</span>
+              <h3>Credit Hours & Course Progress</h3>
+            </div>
+            <div class="college-metrics-card">
+              <div class="metric-row">
+                <span>Total Enrolled Credit Hours:</span>
+                <strong id="pg-completed-credits">0.0 hrs</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-block progress-section" id="school-progress-block" hidden>
+            <div class="section-block-head">
+              <span class="eyebrow">School Learning Metrics</span>
+              <h3>Subject Mastery & Study Consistency</h3>
+            </div>
+            <div class="school-metrics-card">
+              <div class="metric-row">
+                <span>Daily Study Consistency Rate:</span>
+                <strong id="pg-subject-rate" class="gpa-badge">100%</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-block progress-section">
+            <div class="section-block-head">
+              <span class="eyebrow">Course completion</span>
+            </div>
+            <div class="empty-state" id="progress-courses-empty">No courses yet.</div>
+            <div class="progress-course-list" id="progress-course-list" hidden></div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 3: REWARDS -->
+        <div id="profile-subtab-rewards" class="profile-subtab" hidden>
+          <div class="rewards-head">
+            <div>
+              <span class="eyebrow">Spend Credits</span>
+              <h3>Rewards Shop</h3>
+            </div>
+            <div class="rewards-balance">
+              <span class="rewards-balance-icon">◆</span>
+              <span class="rewards-balance-value" id="rewards-balance">0</span>
+              <span class="rewards-balance-label">Credits</span>
+            </div>
+          </div>
+          <p class="muted-sm rewards-sub">Every price is fixed and shown upfront — no chance mechanics, ever.</p>
+
+          <div class="reward-grid" id="reward-grid"></div>
+
+          <div class="section-block rewards-section">
+            <div class="section-block-head">
+              <span class="eyebrow">Transaction history</span>
+            </div>
+            <div class="empty-state" id="ledger-empty">No transactions yet — complete a course day or task to start earning.</div>
+            <div class="ledger-list" id="ledger-list" hidden></div>
           </div>
         </div>
       </section>
@@ -245,8 +455,234 @@
     </nav>
   </div>
 
+  <!-- ============ NEW TASK MODAL ============ -->
+  <div class="modal-overlay" id="modal-task" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-task-title">
+      <div class="modal-head">
+        <h2 id="modal-task-title">New task</h2>
+        <button type="button" class="modal-close" id="modal-task-close" aria-label="Close">✕</button>
+      </div>
+
+      <form id="form-task" class="modal-body">
+        <label class="field">
+          <span class="field-label">Task</span>
+          <input type="text" name="title" required placeholder="e.g. Finish lab report">
+        </label>
+
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">Due date (optional)</span>
+            <input type="date" name="dueDate">
+          </label>
+          <label class="field">
+            <span class="field-label">Priority</span>
+            <select name="priority">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="field">
+          <span class="field-label">Link to a course (optional)</span>
+          <select name="courseId" id="task-course-select">
+            <option value="">No course</option>
+          </select>
+        </label>
+
+        <p class="auth-error" id="task-error" hidden></p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="modal-task-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ CREATE COURSE MODAL ============ -->
+  <div class="modal-overlay" id="modal-course" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-course-title">
+      <div class="modal-head">
+        <h2 id="modal-course-title">New course</h2>
+        <button type="button" class="modal-close" id="modal-course-close" aria-label="Close">✕</button>
+      </div>
+
+      <form id="form-course" class="modal-body">
+        <label class="field">
+          <span class="field-label" id="course-title-label">Course name</span>
+          <input type="text" name="title" required placeholder="e.g. Embedded C / Mathematics">
+        </label>
+
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">Start date</span>
+            <input type="date" name="startDate" required>
+          </label>
+          <label class="field">
+            <span class="field-label">End date</span>
+            <input type="date" name="endDate" required>
+          </label>
+        </div>
+
+        <div class="field">
+          <span class="field-label">How many days a week?</span>
+          <div class="weekday-picker" id="weekday-picker">
+            <button type="button" class="weekday-chip" data-day="mon">Mon</button>
+            <button type="button" class="weekday-chip" data-day="tue">Tue</button>
+            <button type="button" class="weekday-chip" data-day="wed">Wed</button>
+            <button type="button" class="weekday-chip" data-day="thu">Thu</button>
+            <button type="button" class="weekday-chip" data-day="fri">Fri</button>
+            <button type="button" class="weekday-chip" data-day="sat">Sat</button>
+            <button type="button" class="weekday-chip" data-day="sun">Sun</button>
+          </div>
+          <div class="weekday-presets">
+            <button type="button" class="preset-link" data-preset="weekdays">Mon–Fri</button>
+            <button type="button" class="preset-link" data-preset="mon-sat">Mon–Sat</button>
+            <button type="button" class="preset-link" data-preset="all">All 7 days</button>
+          </div>
+        </div>
+
+        <!-- Optional fields collapsed behind toggle -->
+        <details class="more-options-details">
+          <summary class="more-options-summary">More options (optional)</summary>
+          <div class="more-options-content">
+            <!-- College Specific Fields -->
+            <div class="track-fields college-fields" id="course-college-fields" hidden>
+              <div class="field-row">
+                <label class="field">
+                  <span class="field-label">Course Type</span>
+                  <select name="enrollmentType" id="course-enrollment-type">
+                    <option value="academic" selected>Academic Course</option>
+                    <option value="online">Online Certification (Coursera, NPTEL, etc.)</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field-label">Course Code / Tag</span>
+                  <input type="text" name="courseCode" placeholder="e.g. CS-101 / NPTEL-01">
+                </label>
+              </div>
+
+              <div class="field-row">
+                <label class="field">
+                  <span class="field-label">Estimated Weekly Hours</span>
+                  <input type="number" step="0.5" min="0.5" max="20" name="creditHours" placeholder="e.g. 3.0" value="3.0">
+                </label>
+                <label class="field">
+                  <span class="field-label">Instructor / Platform</span>
+                  <input type="text" name="instructor" placeholder="e.g. Prof. Alan Turing / Coursera / NPTEL">
+                </label>
+              </div>
+
+              <div id="subfields-online" class="field-row" hidden>
+                <label class="field">
+                  <span class="field-label">Online Platform</span>
+                  <select name="platform">
+                    <option value="Coursera">Coursera</option>
+                    <option value="NPTEL">NPTEL / SWAYAM</option>
+                    <option value="edX">edX</option>
+                    <option value="Udemy">Udemy</option>
+                    <option value="YouTube">YouTube / Self-Paced</option>
+                    <option value="Other">Other Platform</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field-label">Certificate Link (optional)</span>
+                  <input type="url" name="platformUrl" placeholder="https://coursera.org/learn/...">
+                </label>
+              </div>
+            </div>
+
+            <!-- School Specific Fields -->
+            <div class="track-fields school-fields" id="course-school-fields" hidden>
+              <div class="field-row">
+                <label class="field">
+                  <span class="field-label">Subject Category</span>
+                  <select name="subjectCategory">
+                    <option value="Mathematics">Mathematics</option>
+                    <option value="Science">Science & Physics</option>
+                    <option value="Languages">Languages & Literature</option>
+                    <option value="Social Studies">Social Studies & History</option>
+                    <option value="Computer Science">Computer Science & Tech</option>
+                    <option value="General" selected>General Subject</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field-label">Teacher Name</span>
+                  <input type="text" name="teacherName" placeholder="e.g. Mr. Davis">
+                </label>
+              </div>
+            </div>
+
+            <label class="field">
+              <span class="field-label">Description (optional)</span>
+              <input type="text" name="description" placeholder="What this course covers">
+            </label>
+
+            <label class="field">
+              <span class="field-label">Daily targets (optional)</span>
+              <textarea name="targets" rows="3" placeholder="One line per scheduled day, in order — e.g.&#10;Variables & data types&#10;Operators & expressions&#10;Conditional statements&#10;&#10;Leave blank to auto-label each day."></textarea>
+            </label>
+          </div>
+        </details>
+
+        <p class="auth-error" id="course-error" hidden></p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="modal-course-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create course</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ COURSE DETAIL DRAWER ============ -->
+  <div class="drawer-overlay" id="drawer-course" hidden>
+    <div class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-course-title">
+      <div class="drawer-head">
+        <button type="button" class="drawer-back" id="drawer-back" aria-label="Close">←</button>
+        <div class="drawer-head-text">
+          <h2 id="drawer-course-title">—</h2>
+          <p id="drawer-course-sub" class="muted-sm">—</p>
+        </div>
+      </div>
+
+      <div class="drawer-progress">
+        <div class="drawer-progress-track">
+          <div class="drawer-progress-fill" id="drawer-progress-fill"></div>
+        </div>
+        <span class="drawer-progress-label" id="drawer-progress-label">0%</span>
+      </div>
+
+      <div class="drawer-tabs">
+        <button type="button" class="drawer-tab is-active" data-drawer-tab="overview">Overview</button>
+        <button type="button" class="drawer-tab" data-drawer-tab="schedule">Schedule</button>
+        <button type="button" class="drawer-tab" data-drawer-tab="resources">Resources</button>
+      </div>
+
+      <div class="drawer-content" id="drawer-overview">
+        <p id="drawer-overview-desc" class="muted-sm">—</p>
+        <div class="drawer-stats">
+          <div class="drawer-stat"><span id="drawer-stat-completed">0</span><small>days completed</small></div>
+          <div class="drawer-stat"><span id="drawer-stat-total">0</span><small>scheduled days</small></div>
+          <div class="drawer-stat"><span id="drawer-stat-status">—</span><small>status</small></div>
+        </div>
+        <button type="button" class="btn btn-danger-ghost" id="btn-delete-course">Delete course</button>
+      </div>
+
+      <div class="drawer-content" id="drawer-schedule" hidden>
+        <div class="schedule-list" id="schedule-list"></div>
+      </div>
+
+      <div class="drawer-content" id="drawer-resources" hidden>
+        <div class="empty-state">Links, files and reference material for this course will live here in a later phase.</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
-  <div id="toast" class="toast" hidden></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 </div>
 
